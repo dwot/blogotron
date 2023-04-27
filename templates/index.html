@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>News App Demo</title>
+    <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+<main>
+    <header>
+        <a class="logo" href="/">Blog-o-Tron</a>
+    </header>
+    <section class="container">
+        <form action="/write" method="POST">
+            <input
+                    autofocus
+                    class="search-input"
+                    value="{{ .Prompt }}"
+                    placeholder="Enter an article idea"
+                    type="search"
+                    name="q"
+            />
+            <br>
+            <input
+                    autofocus
+                    class="search-input"
+                    value="{{ .ImagePrompt }}"
+                    placeholder="Enter an image idea"
+                    type="search"
+                    name="m"
+            />
+            <br>
+            <input type="submit" name="submit" value="submit"/>
+        </form>
+    </section>
+    {{if .Error}}
+    <section class="container">
+        <ul class="err-msg">
+            <li class="news-article">
+                <div>
+                    <h3 class="title">{{.Error }}</h3>
+                </div>
+            </li>
+        </ul>
+    </section>
+    {{ end }}
+    <section class="container">
+        <ul class="search-results">
+            <li class="news-article">
+                <div>
+                    <h3 class="title">{{.Title }}</h3>
+                    <p class="description">{{ .Content }}</p>
+                </div>
+            </li>
+        </ul>
+    </section>
+</main>
+</body>
+</html>
