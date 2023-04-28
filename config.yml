@@ -1,0 +1,15 @@
+config:
+  settings:
+    image-negatives: |
+      watermark,border,blurry,duplicate
+    sampler-name: |
+      DPM++ 2M
+  prompt:
+    title-prompt: |
+      Find a title for your article. Use the language of the article.
+    system-prompt: |
+      You are blog writer and you want to write a new article.
+    web-prompt: |
+      Write an 500 word SEO optimized blog article about "{{.Prompt}}".
+    img-prompt: |
+      {{.ImagePrompt}}
