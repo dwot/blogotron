@@ -6,13 +6,13 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/joho/godotenv"
-	wordpress "github.com/meitarim/go-wordpress"
+	"github.com/meitarim/go-wordpress"
 	"github.com/spf13/viper"
 	"golang/config"
 	"golang/openai"
 	"golang/stablediffusion"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -25,12 +25,11 @@ type Post struct {
 	Description string `json:"description"`
 	Image       []byte `json:"image"`
 	Prompt      string `json:"prompt"`
-	ImagePrompt string `json:"imageprompt"`
+	ImagePrompt string `json:"image-prompt"`
 	Error       string `json:"error"`
-	ImageB64    string `json:"imageb64"`
+	ImageB64    string `json:"image64"`
 }
 
-var indexTpl = template.Must(template.ParseFiles("templates\\index.html"))
 var resultsTpl = template.Must(template.ParseFiles("templates\\results.html"))
 var menuTpl = template.Must(template.ParseFiles("templates\\menu.html"))
 
@@ -52,29 +51,23 @@ func main() {
 	mux.HandleFunc("/write", writeHandler)
 	mux.HandleFunc("/menu", menuHandler)
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
-	http.ListenAndServe(":"+port, mux)
-}
-
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	buf := &bytes.Buffer{}
-	err := indexTpl.Execute(buf, nil)
+	err = http.ListenAndServe(":"+port, mux)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		fmt.Println("Error starting http server:" + err.Error())
 	}
-
-	buf.WriteTo(w)
 }
 
-func menuHandler(w http.ResponseWriter, r *http.Request) {
+func menuHandler(w http.ResponseWriter, _ *http.Request) {
 	buf := &bytes.Buffer{}
 	err := menuTpl.Execute(buf, nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	buf.WriteTo(w)
+	_, err = buf.WriteTo(w)
+	if err != nil {
+		fmt.Println("Err rendering menu:" + err.Error())
+	}
 }
 
 func writeHandler(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +136,7 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 		if response.StatusCode != 200 {
 			post.Error = "Bad response code downloading image: " + strconv.Itoa(response.StatusCode)
 		}
-		imgBytes, err = ioutil.ReadAll(response.Body)
+		imgBytes, err = io.ReadAll(response.Body)
 		if err != nil {
 			post.Error = "Error reading image bytes: " + err.Error()
 		}
@@ -160,7 +153,10 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buf.WriteTo(w)
+	_, wtErr := buf.WriteTo(w)
+	if wtErr != nil {
+		fmt.Println("Error rendering results html:" + wtErr.Error())
+	}
 }
 
 func generateImage(p string) []byte {
@@ -172,7 +168,7 @@ func generateImage(p string) []byte {
 			imgBytes = openai.GenerateImg(p)
 		} else if os.Getenv("IMG_MODE") == "sd" {
 			ctx := context.Background()
-			imgs, err := stablediffusion.Generate(ctx, stablediffusion.SimpleImageRequest{
+			images, err := stablediffusion.Generate(ctx, stablediffusion.SimpleImageRequest{
 				Prompt:                            p,
 				NegativePrompt:                    "watermark,border,blurry,duplicate",
 				Styles:                            nil,
@@ -192,7 +188,7 @@ func generateImage(p string) []byte {
 			if err != nil {
 				fmt.Println("Err" + err.Error())
 			}
-			imgBytes = imgs.Images[0]
+			imgBytes = images.Images[0]
 		} else {
 			fmt.Println("image generation disabled")
 		}
@@ -221,21 +217,16 @@ func postToWordpress(post Post) *wordpress.Post {
 			ContentType: "image/png",
 			Data:        post.Image,
 		}
-		newMedia, resp, body, err := client.Media().Create(media)
+		newMedia, resp, _, err := client.Media().Create(media)
 		if err != nil {
 			fmt.Println("Should not return error:" + err.Error())
 		}
 		if resp.StatusCode != http.StatusCreated {
 			fmt.Println("Expected 201 Created, got" + resp.Status)
 		}
-		if body == nil {
-			fmt.Println("Should not return nil body")
+		if newMedia != nil {
+			newPost.FeaturedImage = newMedia.ID
 		}
-		if newMedia == nil {
-			fmt.Println("Should not return nil newMedia")
-		}
-		fmt.Println(resp)
-		newPost.FeaturedImage = newMedia.ID
 	}
 
 	newPost, res, _, err := client.Posts().Create(newPost)
