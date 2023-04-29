@@ -132,7 +132,10 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			post.Error = "Error downloading image: " + err.Error()
 		}
-		defer response.Body.Close()
+		defer func() {
+			rbcErr := response.Body.Close()
+			post.Error = "Error closing image response body" + rbcErr.Error()
+		}()
 		if response.StatusCode != 200 {
 			post.Error = "Bad response code downloading image: " + strconv.Itoa(response.StatusCode)
 		}
