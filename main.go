@@ -16,6 +16,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 type Post struct {
@@ -82,6 +83,8 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 	imgUrl := r.FormValue("imageUrl")
 	downloadImg := r.FormValue("downloadImage")
 	generateImg := r.FormValue("generateImage")
+	includeYt := r.FormValue("includeYt")
+	ytUrl := r.FormValue("ytUrl")
 	article := ""
 	title := ""
 	var imgBytes []byte
@@ -97,49 +100,52 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 		webPrompt := new(bytes.Buffer)
 		wpErr := wpTmpl.Execute(webPrompt, post)
 		if wpErr != nil {
-			panic(wpErr)
+			post.Error = "Error generating web prompt from template: " + wpErr.Error()
 		}
 		fmt.Println("Prompt is: ", webPrompt.String())
 		articleResp, err := openai.GenerateArticle(webPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 		if err != nil {
-			panic(err)
+			post.Error = "Error generating article from OpenAI API: " + err.Error()
 		}
 		article = articleResp
 		titleResp, err := openai.GenerateTitle(article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
 		if err != nil {
-			panic(err)
+			post.Error = "Error generating title from OpenAI API: " + err.Error()
 		}
 		title = titleResp
+		if includeYt == "true" && ytUrl != "" {
+			article = article + "\n<p>[embed]" + ytUrl + "[/embed]</p>"
+		}
 		post.Content = article
 		post.Title = title
 	} else {
 		post.Error = "Please input an article idea first."
 	}
 
-	if generateImg == "true" && imgPrompt != "" {
+	if post.Error == "" && generateImg == "true" && imgPrompt != "" {
 		fmt.Println("Img Prompt in is: ", imgPrompt)
 		imgTmpl := template.Must(template.New("img-prompt").Parse(viper.GetString("config.prompt.img-prompt")))
 		imgBuiltPrompt := new(bytes.Buffer)
 		imgErr := imgTmpl.Execute(imgBuiltPrompt, post)
 		if imgErr != nil {
-			panic(imgErr)
+			post.Error = "Error generating image: " + imgErr.Error()
 		}
 		newImgPrompt = imgBuiltPrompt.String()
 		fmt.Println("Img Prompt out is: ", newImgPrompt)
 		imgBytes = generateImage(newImgPrompt)
 		post.Image = imgBytes
-	} else if downloadImg == "true" && imgUrl != "" {
+	} else if post.Error == "" && downloadImg == "true" && imgUrl != "" {
 		response, err := http.Get(imgUrl)
 		if err != nil {
-			fmt.Println("Should not return error:" + err.Error())
+			post.Error = "Error downloading image: " + err.Error()
 		}
 		defer response.Body.Close()
 		if response.StatusCode != 200 {
-			fmt.Println("Bad Response Code")
+			post.Error = "Bad response code downloading image: " + strconv.Itoa(response.StatusCode)
 		}
 		imgBytes, err = ioutil.ReadAll(response.Body)
 		if err != nil {
-			fmt.Println("Should not return error:" + err.Error())
+			post.Error = "Error reading image bytes: " + err.Error()
 		}
 		post.Image = imgBytes
 	}
@@ -234,7 +240,7 @@ func postToWordpress(post Post) *wordpress.Post {
 
 	newPost, res, _, err := client.Posts().Create(newPost)
 	if err != nil {
-		panic(err)
+		fmt.Println("Error posting to WordPress:" + err.Error())
 	}
 	fmt.Println(res)
 	//fmt.Printf("%+v\n", post)

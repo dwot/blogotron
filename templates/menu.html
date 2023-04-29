@@ -48,6 +48,17 @@
                     <input class="form-control" id="imageUrl" name="imageUrl" type="text" placeholder="Image URL" data-sb-validations="required" />
                     <div class="invalid-feedback" data-sb-feedback="imageUrl:required">Image URL is required.</div>
                 </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" id="includeYt" type="checkbox" name="includeYt" value="true" />
+                        <label class="form-check-label" for="includeYt">Include YT Video</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="ytUrl">YouTube URL</label>
+                    <input class="form-control" id="ytUrl" name="ytUrl" type="text" placeholder="Image URL" data-sb-validations="required" />
+                    <div class="invalid-feedback" data-sb-feedback="imageUrl:required">YT URL is required.</div>
+                </div>
                 <div class="d-grid">
                     <button type="submit" value="Submit" class="btn btn-success btn-lg" id="submit">Submit</button>
                 </div>
