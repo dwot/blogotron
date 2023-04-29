@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"github.com/joho/godotenv"
 	wordpress "github.com/meitarim/go-wordpress"
@@ -11,9 +12,9 @@ import (
 	"golang/openai"
 	"golang/stablediffusion"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 )
 
@@ -25,32 +26,148 @@ type Post struct {
 	Prompt      string `json:"prompt"`
 	ImagePrompt string `json:"imageprompt"`
 	Error       string `json:"error"`
+	ImageB64    string `json:"imageb64"`
 }
 
-var tpl = template.Must(template.ParseFiles("templates\\index.html"))
+var indexTpl = template.Must(template.ParseFiles("templates\\index.html"))
+var resultsTpl = template.Must(template.ParseFiles("templates\\results.html"))
+var menuTpl = template.Must(template.ParseFiles("templates\\menu.html"))
 
-func writeArticle(p string, p2 string) Post {
-	article, err := openai.GenerateArticle(p, viper.GetString("config.prompt.system-prompt"))
+func main() {
+	err := godotenv.Load()
 	if err != nil {
-		panic(err)
+		log.Fatal("Error loading .env file")
+	}
+	config.ParseConfig()
+
+	port := os.Getenv("BLOGOTRON_PORT")
+	if port == "" {
+		port = "8666"
+	}
+	fs := http.FileServer(http.Dir("assets"))
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", menuHandler)
+	mux.HandleFunc("/write", writeHandler)
+	mux.HandleFunc("/menu", menuHandler)
+	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
+	http.ListenAndServe(":"+port, mux)
+}
+
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+	buf := &bytes.Buffer{}
+	err := indexTpl.Execute(buf, nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	title, err := openai.GenerateTitle(article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(title)
+	buf.WriteTo(w)
+}
 
+func menuHandler(w http.ResponseWriter, r *http.Request) {
+	buf := &bytes.Buffer{}
+	err := menuTpl.Execute(buf, nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	buf.WriteTo(w)
+}
+
+func writeHandler(w http.ResponseWriter, r *http.Request) {
+	promptEntry := r.FormValue("articleConcept")
+	imgPrompt := r.FormValue("imagePrompt")
+	imgUrl := r.FormValue("imageUrl")
+	downloadImg := r.FormValue("downloadImage")
+	generateImg := r.FormValue("generateImage")
+	article := ""
+	title := ""
 	var imgBytes []byte
-	if p2 != "" {
+
+	post := Post{
+		Image:       imgBytes,
+		Prompt:      promptEntry,
+		ImagePrompt: imgPrompt,
+	}
+	newImgPrompt := ""
+	if promptEntry != "" {
+		wpTmpl := template.Must(template.New("web-prompt").Parse(viper.GetString("config.prompt.web-prompt")))
+		webPrompt := new(bytes.Buffer)
+		wpErr := wpTmpl.Execute(webPrompt, post)
+		if wpErr != nil {
+			panic(wpErr)
+		}
+		fmt.Println("Prompt is: ", webPrompt.String())
+		articleResp, err := openai.GenerateArticle(webPrompt.String(), viper.GetString("config.prompt.system-prompt"))
+		if err != nil {
+			panic(err)
+		}
+		article = articleResp
+		titleResp, err := openai.GenerateTitle(article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
+		if err != nil {
+			panic(err)
+		}
+		title = titleResp
+		post.Content = article
+		post.Title = title
+	} else {
+		post.Error = "Please input an article idea first."
+	}
+
+	if generateImg == "true" && imgPrompt != "" {
+		fmt.Println("Img Prompt in is: ", imgPrompt)
+		imgTmpl := template.Must(template.New("img-prompt").Parse(viper.GetString("config.prompt.img-prompt")))
+		imgBuiltPrompt := new(bytes.Buffer)
+		imgErr := imgTmpl.Execute(imgBuiltPrompt, post)
+		if imgErr != nil {
+			panic(imgErr)
+		}
+		newImgPrompt = imgBuiltPrompt.String()
+		fmt.Println("Img Prompt out is: ", newImgPrompt)
+		imgBytes = generateImage(newImgPrompt)
+		post.Image = imgBytes
+	} else if downloadImg == "true" && imgUrl != "" {
+		response, err := http.Get(imgUrl)
+		if err != nil {
+			fmt.Println("Should not return error:" + err.Error())
+		}
+		defer response.Body.Close()
+		if response.StatusCode != 200 {
+			fmt.Println("Bad Response Code")
+		}
+		imgBytes, err = ioutil.ReadAll(response.Body)
+		if err != nil {
+			fmt.Println("Should not return error:" + err.Error())
+		}
+		post.Image = imgBytes
+	}
+	post.ImageB64 = base64.StdEncoding.EncodeToString(imgBytes)
+	fmt.Println(len(imgBytes))
+	postToWordpress(post)
+
+	buf := &bytes.Buffer{}
+	err := resultsTpl.Execute(buf, post)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	buf.WriteTo(w)
+}
+
+func generateImage(p string) []byte {
+	var imgBytes []byte
+	if p != "" {
 		fmt.Println("Negatives:" + viper.GetString("config.settings.image-negatives"))
-		fmt.Println("OK We're going to get an image!" + p2)
+		fmt.Println("OK We're going to get an image!" + p)
 		if os.Getenv("IMG_MODE") == "openai" {
-			imgBytes = openai.GenerateImg(p2)
+			imgBytes = openai.GenerateImg(p)
 		} else if os.Getenv("IMG_MODE") == "sd" {
 			ctx := context.Background()
 			imgs, err := stablediffusion.Generate(ctx, stablediffusion.SimpleImageRequest{
-				Prompt:                            p2,
+				Prompt:                            p,
 				NegativePrompt:                    "watermark,border,blurry,duplicate",
 				Styles:                            nil,
 				Seed:                              -1,
@@ -74,155 +191,7 @@ func writeArticle(p string, p2 string) Post {
 			fmt.Println("image generation disabled")
 		}
 	}
-
-	post := Post{
-		Title:       title,
-		Content:     article,
-		Image:       imgBytes,
-		Prompt:      p,
-		ImagePrompt: p2,
-	}
-	return post
-}
-
-func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-	config.ParseConfig()
-
-	port := os.Getenv("BLOGOTRON_PORT")
-	if port == "" {
-		port = "8666"
-	}
-	fs := http.FileServer(http.Dir("assets"))
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/", indexHandler)
-	mux.HandleFunc("/write", writeHandler)
-	mux.HandleFunc("/imgtest", imageHandler)
-	mux.HandleFunc("/test", testHandler)
-	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
-	http.ListenAndServe(":"+port, mux)
-}
-
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	buf := &bytes.Buffer{}
-	err := tpl.Execute(buf, nil)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	buf.WriteTo(w)
-}
-
-func testHandler(w http.ResponseWriter, r *http.Request) {
-	var newPost Post
-	newPost.Prompt = "testaroni"
-	wpTmpl := template.Must(template.New("web-prompt").Parse(viper.GetString("config.prompt.web-prompt")))
-	webPrompt := new(bytes.Buffer)
-	wpErr := wpTmpl.Execute(webPrompt, newPost)
-	if wpErr != nil {
-		panic(wpErr)
-	}
-	fmt.Println("Test that shit" + newPost.Prompt)
-	fmt.Println("TEST:" + webPrompt.String())
-	tpl.Execute(w, nil)
-}
-
-func imageHandler(w http.ResponseWriter, r *http.Request) {
-	var imgBytes []byte
-	p2 := "a portrait of a blue jay"
-	fmt.Println("OK We're going to get an image!")
-	if os.Getenv("IMG_MODE") == "openai" {
-		imgBytes = openai.GenerateImg(p2)
-	} else if os.Getenv("IMG_MODE") == "sd" {
-		ctx := context.Background()
-		imgs, err := stablediffusion.Generate(ctx, stablediffusion.SimpleImageRequest{
-			Prompt:                            p2,
-			NegativePrompt:                    "watermark,border,blurry,duplicate",
-			Styles:                            nil,
-			Seed:                              -1,
-			SamplerName:                       "DPM++ 2M",
-			BatchSize:                         1,
-			NIter:                             1,
-			Steps:                             30,
-			CfgScale:                          7,
-			Width:                             512,
-			Height:                            512,
-			SNoise:                            0,
-			OverrideSettings:                  struct{}{},
-			OverrideSettingsRestoreAfterwards: false,
-			SaveImages:                        true,
-		})
-		if err != nil {
-			fmt.Println("Err" + err.Error())
-		}
-		imgBytes = imgs.Images[0]
-	}
-	fmt.Println(len(imgBytes))
-	tpl.Execute(w, nil)
-}
-
-func writeHandler(w http.ResponseWriter, r *http.Request) {
-	u, err := url.Parse(r.URL.String())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	promptEntry := ""
-	imgPrompt := ""
-	switch r.Method {
-	case "GET":
-		params := u.Query()
-		promptEntry = params.Get("q")
-		imgPrompt = params.Get("m")
-
-	case "POST":
-		promptEntry = r.FormValue("q")
-		imgPrompt = r.FormValue("m")
-	}
-
-	var newPost Post
-	newImgPrompt := ""
-	if promptEntry != "" {
-		newPost.Prompt = promptEntry
-		wpTmpl := template.Must(template.New("web-prompt").Parse(viper.GetString("config.prompt.web-prompt")))
-		webPrompt := new(bytes.Buffer)
-		wpErr := wpTmpl.Execute(webPrompt, newPost)
-		if wpErr != nil {
-			panic(wpErr)
-		}
-		if imgPrompt != "" {
-			newPost.ImagePrompt = imgPrompt
-			fmt.Println("Img Prompt in is: ", imgPrompt)
-			imgTmpl := template.Must(template.New("img-prompt").Parse(viper.GetString("config.prompt.img-prompt")))
-			imgBuiltPrompt := new(bytes.Buffer)
-			imgErr := imgTmpl.Execute(imgBuiltPrompt, newPost)
-			if imgErr != nil {
-				panic(imgErr)
-			}
-			newImgPrompt = imgBuiltPrompt.String()
-			fmt.Println("Img Prompt out is: ", newImgPrompt)
-		}
-
-		fmt.Println("Prompt is: ", webPrompt.String())
-		newPost = writeArticle(webPrompt.String(), newImgPrompt)
-		postToWordpress(newPost)
-	} else {
-		newPost.Error = "Please input an article idea first."
-	}
-
-	buf := &bytes.Buffer{}
-	err = tpl.Execute(buf, newPost)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	buf.WriteTo(w)
+	return imgBytes
 }
 
 func postToWordpress(post Post) *wordpress.Post {

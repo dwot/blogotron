@@ -35,27 +35,7 @@
             <input type="submit" name="submit" value="submit"/>
         </form>
     </section>
-    {{if .Error}}
-    <section class="container">
-        <ul class="err-msg">
-            <li class="news-article">
-                <div>
-                    <h3 class="title">{{.Error }}</h3>
-                </div>
-            </li>
-        </ul>
-    </section>
-    {{ end }}
-    <section class="container">
-        <ul class="search-results">
-            <li class="news-article">
-                <div>
-                    <h3 class="title">{{.Title }}</h3>
-                    <p class="description">{{ .Content }}</p>
-                </div>
-            </li>
-        </ul>
-    </section>
+
 </main>
 </body>
 </html>
