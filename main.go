@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/meitarim/go-wordpress"
 	"github.com/spf13/viper"
+	"golang/api"
 	"golang/config"
 	"golang/openai"
 	"golang/stablediffusion"
@@ -17,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 )
 
 type Post struct {
@@ -34,27 +37,62 @@ var resultsTpl = template.Must(template.ParseFiles("templates\\results.html"))
 var menuTpl = template.Must(template.ParseFiles("templates\\menu.html"))
 
 func main() {
+	//LOAD SETTINGS
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
 	config.ParseConfig()
 
-	port := os.Getenv("BLOGOTRON_PORT")
-	if port == "" {
-		port = "8666"
+	//API
+	apiPort := os.Getenv("BLOGOTRON_API_PORT")
+	if apiPort == "" {
+		apiPort = "8667"
+	}
+	apiGin := gin.Default()
+	v1 := apiGin.Group("/api/v1")
+	{
+		v1.GET("idea", api.GetIdeas)
+		v1.GET("idea/:id", api.GetIdeaById)
+		v1.POST("idea", api.AddIdea)
+		v1.PUT("idea/:id", api.UpdateIdea)
+		v1.DELETE("idea/:id", api.DeleteIdea)
+		v1.OPTIONS("idea", api.Options)
+	}
+
+	//WEB SERVER
+	webPort := os.Getenv("BLOGOTRON_PORT")
+	if webPort == "" {
+		webPort = "8666"
 	}
 	fs := http.FileServer(http.Dir("assets"))
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("/", menuHandler)
 	mux.HandleFunc("/write", writeHandler)
 	mux.HandleFunc("/menu", menuHandler)
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
-	err = http.ListenAndServe(":"+port, mux)
-	if err != nil {
-		fmt.Println("Error starting http server:" + err.Error())
-	}
+
+	//Thread Mgmt
+	wg := new(sync.WaitGroup)
+	wg.Add(2)
+	fmt.Println("Starting Gin Server")
+	go func() {
+		apiGin.Run(":" + apiPort)
+		wg.Done()
+	}()
+	fmt.Println("Started Gin Server")
+
+	fmt.Println("Starting Web Server")
+	go func() {
+		err = http.ListenAndServe(":"+webPort, mux)
+		if err != nil {
+			fmt.Println("Error starting http server:" + err.Error())
+		}
+		wg.Done()
+	}()
+	fmt.Println("Started Web Server")
+	wg.Wait()
+
 }
 
 func menuHandler(w http.ResponseWriter, _ *http.Request) {
