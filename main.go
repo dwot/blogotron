@@ -28,6 +28,7 @@ type Post struct {
 	ImagePrompt string `json:"image-prompt"`
 	Error       string `json:"error"`
 	ImageB64    string `json:"image64"`
+	Length      int    `json:"article-length"`
 }
 
 var resultsTpl = template.Must(template.ParseFiles("templates\\results.html"))
@@ -78,14 +79,20 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 	generateImg := r.FormValue("generateImage")
 	includeYt := r.FormValue("includeYt")
 	ytUrl := r.FormValue("ytUrl")
+	length := r.FormValue("articleLength")
 	article := ""
 	title := ""
 	var imgBytes []byte
 
+	iLen, convErr := strconv.Atoi(length)
+	if convErr != nil {
+		iLen = 500
+	}
 	post := Post{
 		Image:       imgBytes,
 		Prompt:      promptEntry,
 		ImagePrompt: imgPrompt,
+		Length:      iLen,
 	}
 	newImgPrompt := ""
 	if promptEntry != "" {
@@ -133,8 +140,7 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 			post.Error = "Error downloading image: " + err.Error()
 		}
 		defer func() {
-			rbcErr := response.Body.Close()
-			post.Error = "Error closing image response body" + rbcErr.Error()
+			response.Body.Close()
 		}()
 		if response.StatusCode != 200 {
 			post.Error = "Bad response code downloading image: " + strconv.Itoa(response.StatusCode)
