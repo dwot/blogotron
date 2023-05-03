@@ -58,9 +58,23 @@ func main() {
 	}
 }
 
+type MenuData struct {
+	ErrorCode   string `json:"error-code"`
+	GPT4Enabled bool   `json:"gpt4-enabled"`
+}
+
 func menuHandler(w http.ResponseWriter, _ *http.Request) {
+	gpt4 := os.Getenv("ENABLE_GPT4")
+	gpt4enabled := false
+	if gpt4 == "true" {
+		gpt4enabled = true
+	}
+	menuData := MenuData{
+		ErrorCode:   "",
+		GPT4Enabled: gpt4enabled,
+	}
 	buf := &bytes.Buffer{}
-	err := menuTpl.Execute(buf, nil)
+	err := menuTpl.Execute(buf, menuData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -80,6 +94,7 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 	includeYt := r.FormValue("includeYt")
 	ytUrl := r.FormValue("ytUrl")
 	length := r.FormValue("articleLength")
+	gpt4 := r.FormValue("useGpt4")
 	article := ""
 	title := ""
 	var imgBytes []byte
@@ -94,6 +109,10 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 		ImagePrompt: imgPrompt,
 		Length:      iLen,
 	}
+	useGpt4 := false
+	if gpt4 == "true" {
+		useGpt4 = true
+	}
 	newImgPrompt := ""
 	if promptEntry != "" {
 		wpTmpl := template.Must(template.New("web-prompt").Parse(viper.GetString("config.prompt.web-prompt")))
@@ -103,12 +122,12 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 			post.Error = "Error generating web prompt from template: " + wpErr.Error()
 		}
 		fmt.Println("Prompt is: ", webPrompt.String())
-		articleResp, err := openai.GenerateArticle(webPrompt.String(), viper.GetString("config.prompt.system-prompt"))
+		articleResp, err := openai.GenerateArticle(useGpt4, webPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 		if err != nil {
 			post.Error = "Error generating article from OpenAI API: " + err.Error()
 		}
 		article = articleResp
-		titleResp, err := openai.GenerateTitle(article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
+		titleResp, err := openai.GenerateTitle(false, article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
 		if err != nil {
 			post.Error = "Error generating title from OpenAI API: " + err.Error()
 		}

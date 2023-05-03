@@ -11,13 +11,13 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-func GenerateArticle(prompt string, systemPrompt string) (article string, err error) {
-	article, err = generate(prompt, systemPrompt)
+func GenerateArticle(useGpt4 bool, prompt string, systemPrompt string) (article string, err error) {
+	article, err = generate(useGpt4, prompt, systemPrompt)
 	return
 }
 
-func GenerateTitle(article string, prompt string, systemPrompt string) (title string, err error) {
-	title, err = generate(prompt, systemPrompt, article)
+func GenerateTitle(useGpt4 bool, article string, prompt string, systemPrompt string) (title string, err error) {
+	title, err = generate(useGpt4, prompt, systemPrompt, article)
 	return
 }
 
@@ -43,8 +43,12 @@ func GenerateImg(p string) []byte {
 	return imgBytes
 }
 
-func generate(prompt string, systemPrompt string, article ...string) (string, error) {
+func generate(useGpt4 bool, prompt string, systemPrompt string, article ...string) (string, error) {
 	client := openai.NewClient(os.Getenv("OPENAI_API_KEY"))
+	model := openai.GPT3Dot5Turbo
+	if useGpt4 {
+		model = openai.GPT4
+	}
 	var messages []openai.ChatCompletionMessage
 	messages = append(messages, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleSystem,
@@ -62,7 +66,7 @@ func generate(prompt string, systemPrompt string, article ...string) (string, er
 	})
 	fmt.Println("Messages are: ", messages)
 	resp, err := client.CreateChatCompletion(context.Background(), openai.ChatCompletionRequest{
-		Model:    openai.GPT3Dot5Turbo,
+		Model:    model,
 		Messages: messages,
 	})
 

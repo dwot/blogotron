@@ -26,6 +26,14 @@
                     <input class="form-control" id="articleLength" name="articleLength" type="text" placeholder="Article Length" data-sb-validations="required" />
                     <div class="invalid-feedback" data-sb-feedback="imageUrl:required">Article Length is required.</div>
                 </div>
+                {{if .GPT4Enabled }}
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" id="useGpt4" type="checkbox" name="useGpt4" value="true" />
+                        <label class="form-check-label" for="useGpt4">Use GPT4</label>
+                    </div>
+                </div>
+                {{ end }}
                 <div class="mb-3">
                     <label class="form-label" for="articleConcept">Article Concept</label>
                     <textarea class="form-control" id="articleConcept" name="articleConcept" type="text" placeholder="Article Concept" style="height: 10rem;" data-sb-validations="required"></textarea>
