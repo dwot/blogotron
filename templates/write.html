@@ -10,17 +10,43 @@
 </head>
 <body>
 <main>
-    <div class="container">
-        <header class="d-flex flex-wrap justify-content-center py-3 mb-4 border-bottom">
-            <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none">
-                <svg class="bi me-2" width="40" height="32"><use xlink:href="#bootstrap"></use></svg>
-                <span class="fs-4">Blog-O-Tron</span>
-            </a>
-        </header>
-    </div>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Blog-O-Tron</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="/write">Write</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/plan">Plan</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
     <section class="container">
         <div class="container px-5 my-5">
             <form id="contentForm" action="/write" method="POST">
+                <div class="mb-3">
+                    <label class="form-label" for="articleLength">Article Length</label>
+                    <input class="form-control" id="articleLength" name="articleLength" type="text" placeholder="Article Length" data-sb-validations="required" />
+                    <div class="invalid-feedback" data-sb-feedback="imageUrl:required">Article Length is required.</div>
+                </div>
+                {{if .GPT4Enabled }}
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" id="useGpt4" type="checkbox" name="useGpt4" value="true" />
+                        <label class="form-check-label" for="useGpt4">Use GPT4</label>
+                    </div>
+                </div>
+                {{ end }}
                 <div class="mb-3">
                     <label class="form-label" for="articleConcept">Article Concept</label>
                     <textarea class="form-control" id="articleConcept" name="articleConcept" type="text" placeholder="Article Concept" style="height: 10rem;" data-sb-validations="required"></textarea>
@@ -29,10 +55,11 @@
                 <div class="mb-3">
                     <div class="form-check form-switch">
                         <input class="form-check-input" id="generateImage" type="checkbox" name="generateImage" value="true" />
-                        <label class="form-check-label" for="generateImage">Generate Image</label>
+                        <label class="form-check-label" for="generateImage"  >Generate Image</label>
                     </div>
+
                 </div>
-                <div class="mb-3">
+                <div class="collapse mb-3" id="genImgCollapse">
                     <label class="form-label" for="imagePrompt">Image Prompt</label>
                     <textarea class="form-control" id="imagePrompt" type="text" name="imagePrompt" placeholder="Image Prompt" style="height: 10rem;" data-sb-validations="required"></textarea>
                     <div class="invalid-feedback" data-sb-feedback="imagePrompt:required">Image Prompt is required.</div>
@@ -43,7 +70,7 @@
                         <label class="form-check-label" for="downloadImage">Download Image</label>
                     </div>
                 </div>
-                <div class="mb-3">
+                <div class="collapse mb-3" id="downloadImgCollapse">
                     <label class="form-label" for="imageUrl">Image URL</label>
                     <input class="form-control" id="imageUrl" name="imageUrl" type="text" placeholder="Image URL" data-sb-validations="required" />
                     <div class="invalid-feedback" data-sb-feedback="imageUrl:required">Image URL is required.</div>
@@ -54,7 +81,7 @@
                         <label class="form-check-label" for="includeYt">Include YT Video</label>
                     </div>
                 </div>
-                <div class="mb-3">
+                <div class="collapse mb-3" id="ytUrlCollapse">
                     <label class="form-label" for="ytUrl">YouTube URL</label>
                     <input class="form-control" id="ytUrl" name="ytUrl" type="text" placeholder="Image URL" data-sb-validations="required" />
                     <div class="invalid-feedback" data-sb-feedback="imageUrl:required">YT URL is required.</div>
@@ -68,4 +95,38 @@
 
 </main>
 </body>
+<script>
+    var genImgChk = document.getElementById("generateImage");
+    var genImgDiv = document.getElementById("genImgCollapse");
+
+    // Add an event listener to the checkbox
+    genImgChk.addEventListener("click", function() {
+        if (genImgChk.checked) {
+            genImgDiv.style.display = "block";
+        } else {
+            genImgDiv.style.display = "none";
+        }
+    });
+
+    var downloadImgChk = document.getElementById("downloadImage");
+    var downloadImgDiv = document.getElementById("downloadImgCollapse")
+    downloadImgChk.addEventListener("click", function() {
+        if (downloadImgChk.checked) {
+            downloadImgDiv.style.display = "block";
+        } else {
+            downloadImgDiv.style.display = "none";
+        }
+    });
+
+    var ytUrlChk = document.getElementById("includeYt");
+    var ytUrlDiv = document.getElementById("ytUrlCollapse")
+    ytUrlChk.addEventListener("click", function() {
+        if (ytUrlChk.checked) {
+            ytUrlDiv.style.display = "block";
+        } else {
+            ytUrlDiv.style.display = "none";
+        }
+    });
+
+</script>
 </html>

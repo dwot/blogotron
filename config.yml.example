@@ -10,6 +10,6 @@ config:
     system-prompt: |
       You are blog writer and you want to write a new article.
     web-prompt: |
-      Write an 500 word SEO optimized blog article about "{{.Prompt}}".  Do not mention SEO in the content of the article.
+      Write an {{.Length}} word blog article about {{.Prompt}}.
     img-prompt: |
       {{.ImagePrompt}}
