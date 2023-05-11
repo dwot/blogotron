@@ -32,7 +32,9 @@ type Post struct {
 }
 
 var resultsTpl = template.Must(template.ParseFiles("templates\\results.html"))
-var menuTpl = template.Must(template.ParseFiles("templates\\menu.html"))
+var writeTpl = template.Must(template.ParseFiles("templates\\write.html"))
+var planTpl = template.Must(template.ParseFiles("templates\\plan.html"))
+var indexTpl = template.Must(template.ParseFiles("templates\\index.html"))
 
 func main() {
 	err := godotenv.Load()
@@ -48,9 +50,10 @@ func main() {
 	fs := http.FileServer(http.Dir("assets"))
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", menuHandler)
+	mux.HandleFunc("/", indexHandler)
+	mux.HandleFunc("/create", createHandler)
 	mux.HandleFunc("/write", writeHandler)
-	mux.HandleFunc("/menu", menuHandler)
+	mux.HandleFunc("/plan", planHandler)
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
 	err = http.ListenAndServe(":"+port, mux)
 	if err != nil {
@@ -58,23 +61,17 @@ func main() {
 	}
 }
 
-type MenuData struct {
+type PageData struct {
 	ErrorCode   string `json:"error-code"`
 	GPT4Enabled bool   `json:"gpt4-enabled"`
 }
 
-func menuHandler(w http.ResponseWriter, _ *http.Request) {
-	gpt4 := os.Getenv("ENABLE_GPT4")
-	gpt4enabled := false
-	if gpt4 == "true" {
-		gpt4enabled = true
-	}
-	menuData := MenuData{
-		ErrorCode:   "",
-		GPT4Enabled: gpt4enabled,
+func indexHandler(w http.ResponseWriter, _ *http.Request) {
+	indexData := PageData{
+		ErrorCode: "",
 	}
 	buf := &bytes.Buffer{}
-	err := menuTpl.Execute(buf, menuData)
+	err := indexTpl.Execute(buf, indexData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -85,7 +82,45 @@ func menuHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func writeHandler(w http.ResponseWriter, r *http.Request) {
+func writeHandler(w http.ResponseWriter, _ *http.Request) {
+	gpt4 := os.Getenv("ENABLE_GPT4")
+	gpt4enabled := false
+	if gpt4 == "true" {
+		gpt4enabled = true
+	}
+	writeData := PageData{
+		ErrorCode:   "",
+		GPT4Enabled: gpt4enabled,
+	}
+	buf := &bytes.Buffer{}
+	err := writeTpl.Execute(buf, writeData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = buf.WriteTo(w)
+	if err != nil {
+		fmt.Println("Err rendering menu:" + err.Error())
+	}
+}
+
+func planHandler(w http.ResponseWriter, _ *http.Request) {
+	planData := PageData{
+		ErrorCode: "",
+	}
+	buf := &bytes.Buffer{}
+	err := planTpl.Execute(buf, planData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = buf.WriteTo(w)
+	if err != nil {
+		fmt.Println("Err rendering menu:" + err.Error())
+	}
+}
+
+func createHandler(w http.ResponseWriter, r *http.Request) {
 	promptEntry := r.FormValue("articleConcept")
 	imgPrompt := r.FormValue("imagePrompt")
 	imgUrl := r.FormValue("imageUrl")
