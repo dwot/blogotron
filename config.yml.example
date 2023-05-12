@@ -5,6 +5,8 @@ config:
     sampler-name: |
       DPM++ 2M
   prompt:
+    idea-prompt: |
+        Come up with 10 new ideas for articles. Return the results in unnumbered Pipe-Delimitted format.  The expected format is: "Idea"|
     title-prompt: |
       Find a title for your article. Use the language of the article.
     system-prompt: |
