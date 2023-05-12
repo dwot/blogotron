@@ -31,28 +31,18 @@
             </div>
         </div>
     </nav>
-    {{if .ErrorCode}}
-    <section class="container">
-        <ul class="err-msg">
-            <li class="news-article">
-                <div>
-                    <h3 class="title">{{.Error }}</h3>
-                </div>
-            </li>
-        </ul>
-    </section>
-    {{ end }}
     <section class="container">
         <div class="container px-5 my-5">
-            This is the planning page.<br>
-            <h4>Ideas</h4>
-            <ul>
-                <li><a href="/idea">Manual Add New</a></li>
-                <li><a href="/aiIdea">AI Add New 10x</a></li>
-            {{range .Ideas}}
-            <li>{{ .Id }}. {{ .IdeaText }}  <a href="/write?ideaId={{ .Id }}">Write</a> - <a href="/ideaDel?ideaId={{ .Id }}">Del</a></li>
-            {{end}}
-            </ul>
+            <form id="contentForm" action="/ideaSave" method="POST">
+                <div class="mb-3">
+                    <label class="form-label" for="ideaText">Idea</label>
+                    <input class="form-control" id="ideaText" name="ideaText" type="text" placeholder="Idea Text" data-sb-validations="required" />
+                    <div class="invalid-feedback" data-sb-feedback="imageUrl:required">Idea Text is required.</div>
+                </div>
+                <div class="d-grid">
+                    <button type="submit" value="Submit" class="btn btn-success btn-lg" id="submit">Submit</button>
+                </div>
+            </form>
         </div>
     </section>
 

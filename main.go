@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/viper"
 	"golang/api"
 	"golang/config"
+	"golang/models"
 	"golang/openai"
 	"golang/stablediffusion"
 	"html/template"
@@ -19,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -38,6 +40,7 @@ var resultsTpl = template.Must(template.ParseFiles("templates\\results.html"))
 var writeTpl = template.Must(template.ParseFiles("templates\\write.html"))
 var planTpl = template.Must(template.ParseFiles("templates\\plan.html"))
 var indexTpl = template.Must(template.ParseFiles("templates\\index.html"))
+var ideaTpl = template.Must(template.ParseFiles("templates\\idea.html"))
 
 func main() {
 	err := godotenv.Load()
@@ -45,6 +48,13 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 	config.ParseConfig()
+
+	//DB
+	dbName := os.Getenv("BLOGOTRON_DB_NAME")
+	err = models.ConnectDatabase(dbName)
+	if err != nil {
+		log.Fatal("Error connecting DB " + err.Error())
+	}
 
 	//API
 	apiPort := os.Getenv("BLOGOTRON_API_PORT")
@@ -74,6 +84,10 @@ func main() {
 	mux.HandleFunc("/create", createHandler)
 	mux.HandleFunc("/write", writeHandler)
 	mux.HandleFunc("/plan", planHandler)
+	mux.HandleFunc("/aiIdea", aiIdeaHandler)
+	mux.HandleFunc("/idea", ideaHandler)
+	mux.HandleFunc("/ideaSave", ideaSaveHandler)
+	mux.HandleFunc("/ideaDel", ideaRemoveHandler)
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
 
 	//Thread Mgmt
@@ -102,6 +116,8 @@ func main() {
 type PageData struct {
 	ErrorCode   string `json:"error-code"`
 	GPT4Enabled bool   `json:"gpt4-enabled"`
+	IdeaText    string `json:"idea-text"`
+	IdeaId      string `json:"idea-id"`
 }
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
@@ -120,7 +136,21 @@ func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func writeHandler(w http.ResponseWriter, _ *http.Request) {
+func writeHandler(w http.ResponseWriter, r *http.Request) {
+	ideaId := r.FormValue("ideaId")
+	id, err := strconv.Atoi(ideaId)
+	if err != nil {
+		id = 0
+	}
+	ideaText := ""
+	if id > 0 {
+		idea, dbErr := models.GetIdeaById(ideaId)
+		if dbErr != nil {
+			fmt.Println("Err looking up idea by id:" + dbErr.Error())
+		}
+		ideaText = idea.IdeaText
+	}
+
 	gpt4 := os.Getenv("ENABLE_GPT4")
 	gpt4enabled := false
 	if gpt4 == "true" {
@@ -129,9 +159,11 @@ func writeHandler(w http.ResponseWriter, _ *http.Request) {
 	writeData := PageData{
 		ErrorCode:   "",
 		GPT4Enabled: gpt4enabled,
+		IdeaText:    ideaText,
+		IdeaId:      ideaId,
 	}
 	buf := &bytes.Buffer{}
-	err := writeTpl.Execute(buf, writeData)
+	err = writeTpl.Execute(buf, writeData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -142,12 +174,147 @@ func writeHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
+type PlanData struct {
+	ErrorCode string        `json:"error-code"`
+	Ideas     []models.Idea `json:"ideas"`
+}
+
 func planHandler(w http.ResponseWriter, _ *http.Request) {
-	planData := PageData{
+	ideas, err := models.GetOpenIdeas()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	planData := PlanData{
 		ErrorCode: "",
+		Ideas:     ideas,
 	}
 	buf := &bytes.Buffer{}
-	err := planTpl.Execute(buf, planData)
+	err = planTpl.Execute(buf, planData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = buf.WriteTo(w)
+	if err != nil {
+		fmt.Println("Err rendering menu:" + err.Error())
+	}
+}
+
+func ideaHandler(w http.ResponseWriter, _ *http.Request) {
+	ideas, err := models.GetOpenIdeas()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	planData := PlanData{
+		ErrorCode: "",
+		Ideas:     ideas,
+	}
+	buf := &bytes.Buffer{}
+	err = ideaTpl.Execute(buf, planData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = buf.WriteTo(w)
+	if err != nil {
+		fmt.Println("Err rendering menu:" + err.Error())
+	}
+}
+
+func aiIdeaHandler(w http.ResponseWriter, _ *http.Request) {
+	useGpt4 := false
+	ideaResp, err := openai.GenerateArticle(useGpt4, viper.GetString("config.prompt.idea-prompt"), viper.GetString("config.prompt.system-prompt"))
+	ideaResp = strings.ReplaceAll(ideaResp, "\n", "")
+	fmt.Println("Idea Brainstorm Results: " + ideaResp)
+	ideaList := strings.Split(ideaResp, "|")
+	for index, value := range ideaList {
+		fmt.Printf("Index: %d, Value: %s\n", index, value)
+		if strings.TrimSpace(value) != "" {
+			models.AddIdeaText(strings.TrimSpace(value))
+		}
+	}
+	ideas, err := models.GetOpenIdeas()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	planData := PlanData{
+		ErrorCode: "",
+		Ideas:     ideas,
+	}
+	buf := &bytes.Buffer{}
+	err = planTpl.Execute(buf, planData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = buf.WriteTo(w)
+	if err != nil {
+		fmt.Println("Err rendering menu:" + err.Error())
+	}
+}
+
+func ideaSaveHandler(w http.ResponseWriter, r *http.Request) {
+	ideaText := r.FormValue("ideaText")
+	ideaId := r.FormValue("ideaId")
+	id, convErr := strconv.Atoi(ideaId)
+	if convErr != nil {
+		id = 0
+	}
+	if id > 0 {
+		//Update by Id
+	} else {
+		//Insert New
+		models.AddIdeaText(ideaText)
+	}
+
+	ideas, err := models.GetOpenIdeas()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	planData := PlanData{
+		ErrorCode: "",
+		Ideas:     ideas,
+	}
+	buf := &bytes.Buffer{}
+	err = planTpl.Execute(buf, planData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = buf.WriteTo(w)
+	if err != nil {
+		fmt.Println("Err rendering menu:" + err.Error())
+	}
+}
+
+func ideaRemoveHandler(w http.ResponseWriter, r *http.Request) {
+	ideaId := r.FormValue("ideaId")
+	id, convErr := strconv.Atoi(ideaId)
+	errString := ""
+	if convErr != nil {
+		id = 0
+	}
+	if id > 0 {
+		models.DeleteIdea(id)
+	} else {
+		errString = "Invalid ID"
+	}
+
+	ideas, err := models.GetOpenIdeas()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	planData := PlanData{
+		ErrorCode: errString,
+		Ideas:     ideas,
+	}
+	buf := &bytes.Buffer{}
+	err = planTpl.Execute(buf, planData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -168,6 +335,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	ytUrl := r.FormValue("ytUrl")
 	length := r.FormValue("articleLength")
 	gpt4 := r.FormValue("useGpt4")
+	ideaId := r.FormValue("ideaId")
 	article := ""
 	title := ""
 	var imgBytes []byte
@@ -254,6 +422,13 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	updId, convErr := strconv.Atoi(ideaId)
+	if convErr != nil {
+		updId = 0
+	}
+	if updId > 0 {
+		models.SetIdeaWritten(updId)
+	}
 	_, wtErr := buf.WriteTo(w)
 	if wtErr != nil {
 		fmt.Println("Error rendering results html:" + wtErr.Error())
