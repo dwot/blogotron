@@ -6,18 +6,6 @@ import (
 	"strconv"
 )
 
-var DB *sql.DB
-
-func ConnectDatabase(dbName string) error {
-	db, err := sql.Open("sqlite", dbName)
-	if err != nil {
-		return err
-	}
-
-	DB = db
-	return nil
-}
-
 type Idea struct {
 	Id         int    `json:"id"`
 	IdeaText   string `json:"idea_text"`

@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"embed"
 	"encoding/base64"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/joho/godotenv"
 	"github.com/meitarim/go-wordpress"
 	"github.com/spf13/viper"
@@ -23,6 +25,9 @@ import (
 	"strings"
 	"sync"
 )
+
+//go:embed sql/migrations/*.sql
+var MigrationSrc embed.FS
 
 type Post struct {
 	Title       string `json:"title"`
@@ -54,6 +59,14 @@ func main() {
 	err = models.ConnectDatabase(dbName)
 	if err != nil {
 		log.Fatal("Error connecting DB " + err.Error())
+	}
+	migSrc, err := iofs.New(MigrationSrc, "sql/migrations")
+	if err != nil {
+		log.Fatal("Error loading db migration " + err.Error())
+	}
+	err = models.MigrateDatabase(migSrc)
+	if err != nil {
+		log.Fatal("Error migrating DB " + err.Error())
 	}
 
 	//API
@@ -223,9 +236,39 @@ func ideaHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func aiIdeaHandler(w http.ResponseWriter, _ *http.Request) {
+type Prompt struct {
+	IdeaCount   string
+	IdeaConcept string
+}
+
+func aiIdeaHandler(w http.ResponseWriter, r *http.Request) {
+	gpt4 := r.FormValue("useGpt4")
 	useGpt4 := false
-	ideaResp, err := openai.GenerateArticle(useGpt4, viper.GetString("config.prompt.idea-prompt"), viper.GetString("config.prompt.system-prompt"))
+	if gpt4 == "true" {
+		useGpt4 = true
+	}
+
+	ideaConcept := r.FormValue("ideaConcept")
+	ideaCount := r.FormValue("ideaCount")
+	if strings.TrimSpace(ideaConcept) != "" {
+		ideaConcept = "The topic for the ideas is: \"" + ideaConcept + "\"."
+	}
+
+	if strings.TrimSpace(ideaCount) == "" {
+		ideaCount = "10"
+	}
+	prompt := Prompt{
+		IdeaCount:   ideaCount,
+		IdeaConcept: ideaConcept,
+	}
+	ideaTmpl := template.Must(template.New("idea-prompt").Parse(viper.GetString("config.prompt.idea-prompt")))
+	ideaPrompt := new(bytes.Buffer)
+	wpErr := ideaTmpl.Execute(ideaPrompt, prompt)
+	if wpErr != nil {
+		fmt.Println("Err rendering idea prompt:" + wpErr.Error())
+	}
+	fmt.Println("Prompt is: ", ideaPrompt.String())
+	ideaResp, err := openai.GenerateArticle(useGpt4, ideaPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 	ideaResp = strings.ReplaceAll(ideaResp, "\n", "")
 	fmt.Println("Idea Brainstorm Results: " + ideaResp)
 	ideaList := strings.Split(ideaResp, "|")
