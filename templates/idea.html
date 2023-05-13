@@ -34,9 +34,11 @@
     <section class="container">
         <div class="container px-5 my-5">
             <form id="contentForm" action="/ideaSave" method="POST">
+                <input type="hidden" name="ideaId" id="ideaId" value="{{ .Idea.Id }}"/>
+                <input type="hidden" name="seriesId" id="seriesId" value="{{ .Idea.SeriesId }}"/>
                 <div class="mb-3">
                     <label class="form-label" for="ideaText">Idea</label>
-                    <input class="form-control" id="ideaText" name="ideaText" type="text" placeholder="Idea Text" data-sb-validations="required" />
+                    <input class="form-control" id="ideaText" name="ideaText" type="text" placeholder="Idea Text" data-sb-validations="required" value="{{.Idea.IdeaText}}"/>
                     <div class="invalid-feedback" data-sb-feedback="imageUrl:required">Idea Text is required.</div>
                 </div>
                 <div class="d-grid">

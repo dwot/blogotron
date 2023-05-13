@@ -77,6 +77,8 @@ func main() {
 	mux.HandleFunc("/idea", ideaHandler)
 	mux.HandleFunc("/ideaSave", ideaSaveHandler)
 	mux.HandleFunc("/ideaDel", ideaRemoveHandler)
+	mux.HandleFunc("/series", seriesHandler)
+	mux.HandleFunc("/seriesSave", seriesSaveHandler)
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
 
 	//Thread Mgmt
