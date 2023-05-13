@@ -1,17 +1,16 @@
 {{template "header"}}
     <section class="container">
         <div class="container px-5 my-5">
-            <form id="contentForm" action="/seriesSave" method="POST">
-                <input type="hidden" name="seriesId" id="seriesId" value="{{ .Series.Id }}"/>
+            <form id="contentForm" action="/aiIdea" method="POST">
                 <div class="mb-3">
-                    <label class="form-label" for="seriesName">Series Name</label>
-                    <input class="form-control" id="seriesName" name="seriesName" type="text" placeholder="Series Name" data-sb-validations="required" value="{{.Series.SeriesName}}"/>
-                    <div class="invalid-feedback" data-sb-feedback="seriesName:required">Series Name is required.</div>
+                    <label class="form-label" for="ideaConcept">AI Idea Starter</label>
+                    <input class="form-control" id="ideaConcept" name="ideaConcept" type="text" placeholder="Idea Concept" data-sb-validations="required" />
+                    <div class="invalid-feedback" data-sb-feedback="ideaConcept:required">Idea Concept is required.</div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="seriesPrompt">Series Prompt</label>
-                    <input class="form-control" id="seriesPrompt" name="seriesPrompt" type="text" placeholder="Series Prompt" data-sb-validations="required" value="{{.Series.SeriesPrompt}}"/>
-                    <div class="invalid-feedback" data-sb-feedback="seriesPrompt:required">Series Prompt is required.</div>
+                    <label class="form-label" for="ideaCount">Idea Count</label>
+                    <input class="form-control" id="ideaCount" name="ideaCount" type="text" placeholder="Idea Count" data-sb-validations="required" value="10"/>
+                    <div class="invalid-feedback" data-sb-feedback="ideaCount:required">Idea Count is required.</div>
                 </div>
                 <div class="d-grid">
                     <button type="submit" value="Submit" class="btn btn-success btn-lg" id="submit">Submit</button>
@@ -19,13 +18,12 @@
             </form>
         </div>
     </section>
-    {{if .Series.Id }}
     <section class="container">
         <div class="container px-5 my-5">
             <h4>Ideas</h4>
             <ul>
-                <li><a href="/idea?seriesId={{ .Series.Id }}">Manual Add New</a></li>
-                <li><a href="/aiIdea?seriesId={{ .Series.Id }}">AI Add New 10x Generic</a></li>
+                <li><a href="/idea">Manual Add New</a></li>
+                <li><a href="/aiIdea">AI Add New 10x Generic</a></li>
             </ul>
             <table class="table table-hover">
                 <thead>
@@ -52,8 +50,8 @@
                 </tr>
                 {{end}}
                 </tbody>
+
             </table>
         </div>
     </section>
-    {{ end }}
 {{template "footer"}}

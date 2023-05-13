@@ -55,12 +55,13 @@ type IdeaData struct {
 	Idea      interface{}
 }
 
-var resultsTpl = template.Must(template.ParseFiles("templates\\results.html"))
-var writeTpl = template.Must(template.ParseFiles("templates\\write.html"))
-var planTpl = template.Must(template.ParseFiles("templates\\plan.html"))
-var indexTpl = template.Must(template.ParseFiles("templates\\index.html"))
-var ideaTpl = template.Must(template.ParseFiles("templates\\idea.html"))
-var seriesTpl = template.Must(template.ParseFiles("templates\\series.html"))
+var resultsTpl = template.Must(template.ParseFiles("templates\\results.html", "templates\\base.html"))
+var writeTpl = template.Must(template.ParseFiles("templates\\write.html", "templates\\base.html"))
+var ideaListTpl = template.Must(template.ParseFiles("templates\\ideaList.html", "templates\\base.html"))
+var seriesListTpl = template.Must(template.ParseFiles("templates\\seriesList.html", "templates\\base.html"))
+var indexTpl = template.Must(template.ParseFiles("templates\\index.html", "templates\\base.html"))
+var ideaTpl = template.Must(template.ParseFiles("templates\\idea.html", "templates\\base.html"))
+var seriesTpl = template.Must(template.ParseFiles("templates\\series.html", "templates\\base.html"))
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	indexData := PageData{
@@ -116,9 +117,8 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func planHandler(w http.ResponseWriter, _ *http.Request) {
+func ideaListHandler(w http.ResponseWriter, _ *http.Request) {
 	ideas, err := models.GetOpenIdeas()
-	series, err := models.GetSeries(50)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -126,10 +126,33 @@ func planHandler(w http.ResponseWriter, _ *http.Request) {
 	planData := PlanData{
 		ErrorCode: "",
 		Ideas:     ideas,
+		Series:    nil,
+	}
+	buf := &bytes.Buffer{}
+	err = ideaListTpl.Execute(buf, planData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = buf.WriteTo(w)
+	if err != nil {
+		fmt.Println("Err rendering menu:" + err.Error())
+	}
+}
+
+func seriesListHandler(w http.ResponseWriter, _ *http.Request) {
+	series, err := models.GetSeries(50)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	planData := PlanData{
+		ErrorCode: "",
+		Ideas:     nil,
 		Series:    series,
 	}
 	buf := &bytes.Buffer{}
-	err = planTpl.Execute(buf, planData)
+	err = seriesListTpl.Execute(buf, planData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -280,7 +303,11 @@ func aiIdeaHandler(w http.ResponseWriter, r *http.Request) {
 			_, err = models.AddIdea(idea)
 		}
 	}
-	planHandler(w, r)
+	if sid > 0 {
+		seriesHandler(w, r)
+	} else {
+		ideaListHandler(w, r)
+	}
 }
 
 func ideaSaveHandler(w http.ResponseWriter, r *http.Request) {
@@ -319,7 +346,11 @@ func ideaSaveHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("Err saving idea:" + err.Error())
 		}
 	}
-	planHandler(w, r)
+	if sid > 0 {
+		seriesHandler(w, r)
+	} else {
+		ideaListHandler(w, r)
+	}
 }
 
 func seriesSaveHandler(w http.ResponseWriter, r *http.Request) {
@@ -352,7 +383,7 @@ func seriesSaveHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("Err saving series:" + err.Error())
 		}
 	}
-	planHandler(w, r)
+	seriesHandler(w, r)
 }
 
 func ideaRemoveHandler(w http.ResponseWriter, r *http.Request) {
@@ -365,7 +396,7 @@ func ideaRemoveHandler(w http.ResponseWriter, r *http.Request) {
 		models.DeleteIdea(id)
 	}
 
-	planHandler(w, r)
+	ideaListHandler(w, r)
 }
 
 func createHandler(w http.ResponseWriter, r *http.Request) {
