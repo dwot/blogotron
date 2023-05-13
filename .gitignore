@@ -2,4 +2,5 @@
 .env
 /last_img.png
 /config.yml
-/private.db
+/blogtron.db
+/blogtron.db
