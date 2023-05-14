@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 	"golang/models"
 	"golang/openai"
+	"golang/unsplash"
 	"html/template"
 	"io"
 	"net/http"
@@ -378,12 +379,38 @@ func seriesSaveHandler(w http.ResponseWriter, r *http.Request) {
 			SeriesName:   seriesName,
 			SeriesPrompt: seriesPrompt,
 		}
-		_, err := models.AddSeries(series)
+		id, err := models.AddSeriesReturningId(series)
 		if err != nil {
 			fmt.Println("Err saving series:" + err.Error())
+		} else {
+			fmt.Println("Saved series with id: " + strconv.Itoa(id))
 		}
+		seriesId = strconv.Itoa(id)
 	}
-	seriesHandler(w, r)
+
+	series, err := models.GetSeriesById(seriesId)
+	if err != nil {
+		fmt.Println("Err getting series:" + err.Error())
+	}
+	ideas, err := models.GetOpenSeriesIdeas(seriesId)
+	if err != nil {
+		fmt.Println("Err getting series ideas:" + err.Error())
+	}
+	seriesData := SeriesData{
+		ErrorCode: "",
+		Series:    series,
+		Ideas:     ideas,
+	}
+	buf := &bytes.Buffer{}
+	err = seriesTpl.Execute(buf, seriesData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = buf.WriteTo(w)
+	if err != nil {
+		fmt.Println("Err rendering series:" + err.Error())
+	}
 }
 
 func ideaRemoveHandler(w http.ResponseWriter, r *http.Request) {
@@ -410,6 +437,8 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	length := r.FormValue("articleLength")
 	gpt4 := r.FormValue("useGpt4")
 	ideaId := r.FormValue("ideaId")
+	unsplashImg := r.FormValue("unsplashImage")
+	unsplashSearch := r.FormValue("unsplashPrompt")
 	article := ""
 	title := ""
 	var imgBytes []byte
@@ -484,17 +513,12 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 			post.Error = "Error reading image bytes: " + err.Error()
 		}
 		post.Image = imgBytes
+	} else if post.Error == "" && unsplashImg == "true" && unsplashSearch != "" {
+		imgBytes = unsplash.GetImageBySearch(unsplashSearch)
 	}
 	post.ImageB64 = base64.StdEncoding.EncodeToString(imgBytes)
 	fmt.Println(len(imgBytes))
 	postToWordpress(post)
-
-	buf := &bytes.Buffer{}
-	err := resultsTpl.Execute(buf, post)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 
 	updId, convErr := strconv.Atoi(ideaId)
 	if convErr != nil {
@@ -502,6 +526,36 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if updId > 0 {
 		models.SetIdeaWritten(updId)
+	}
+
+	buf := &bytes.Buffer{}
+	err := resultsTpl.Execute(buf, post)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, wtErr := buf.WriteTo(w)
+	if wtErr != nil {
+		fmt.Println("Error rendering results html:" + wtErr.Error())
+	}
+}
+
+func testHandler(w http.ResponseWriter, r *http.Request) {
+	//imgBytes := unsplash.GetRandomImage()
+	imgBytes := unsplash.GetImageBySearch("cat")
+	imgPrompt := "Testing unsplash random image"
+	promptEntry := "Testing unsplash random image"
+	post := Post{
+		Image:       imgBytes,
+		Prompt:      promptEntry,
+		ImagePrompt: imgPrompt,
+	}
+	post.ImageB64 = base64.StdEncoding.EncodeToString(imgBytes)
+	buf := &bytes.Buffer{}
+	err := resultsTpl.Execute(buf, post)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	_, wtErr := buf.WriteTo(w)
 	if wtErr != nil {

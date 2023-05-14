@@ -80,6 +80,7 @@ func main() {
 	mux.HandleFunc("/series", seriesHandler)
 	mux.HandleFunc("/seriesList", seriesListHandler)
 	mux.HandleFunc("/seriesSave", seriesSaveHandler)
+	mux.HandleFunc("/test", testHandler)
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
 
 	//Thread Mgmt

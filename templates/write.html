@@ -4,8 +4,13 @@
             <form id="contentForm" action="/create" method="POST">
                 <input type="hidden" name="ideaId" id="ideaId" value="{{ .IdeaId }}"/>
                 <div class="mb-3">
-                    <label class="form-label" for="articleLength">Article Length</label>
-                    <input class="form-control" id="articleLength" name="articleLength" type="text" placeholder="Article Length" data-sb-validations="required" />
+                    <label class="form-label" for="articleConcept">Article Concept</label>
+                    <textarea class="form-control" id="articleConcept" name="articleConcept" type="text" placeholder="Article Concept" style="height: 10rem;" data-sb-validations="required">{{ .IdeaText }}</textarea>
+                    <div class="invalid-feedback" data-sb-feedback="articleConcept:required">Article Concept is required.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="articleLength" id="articleLengthLabel">Article Length - 750</label>
+                    <input type="range" class="form-range" min="500" max="2500" step="250" id="articleLength" name="articleLength" value="750">
                     <div class="invalid-feedback" data-sb-feedback="imageUrl:required">Article Length is required.</div>
                 </div>
                 {{if .GPT4Enabled }}
@@ -17,16 +22,10 @@
                 </div>
                 {{ end }}
                 <div class="mb-3">
-                    <label class="form-label" for="articleConcept">Article Concept</label>
-                    <textarea class="form-control" id="articleConcept" name="articleConcept" type="text" placeholder="Article Concept" style="height: 10rem;" data-sb-validations="required">{{ .IdeaText }}</textarea>
-                    <div class="invalid-feedback" data-sb-feedback="articleConcept:required">Article Concept is required.</div>
-                </div>
-                <div class="mb-3">
                     <div class="form-check form-switch">
                         <input class="form-check-input" id="generateImage" type="checkbox" name="generateImage" value="true" />
                         <label class="form-check-label" for="generateImage"  >Generate Image</label>
                     </div>
-
                 </div>
                 <div class="collapse mb-3" id="genImgCollapse">
                     <label class="form-label" for="imagePrompt">Image Prompt</label>
@@ -44,6 +43,18 @@
                     <input class="form-control" id="imageUrl" name="imageUrl" type="text" placeholder="Image URL" data-sb-validations="required" />
                     <div class="invalid-feedback" data-sb-feedback="imageUrl:required">Image URL is required.</div>
                 </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" id="unsplashImage" type="checkbox" name="unsplashImage" value="true" />
+                        <label class="form-check-label" for="unsplashImage">Find Image on Unsplash</label>
+                    </div>
+                </div>
+                <div class="collapse mb-3" id="unsplashImgCollapse">
+                    <label class="form-label" for="unsplashPrompt">Unsplash Search Phrase</label>
+                    <input class="form-control" id="unsplashPrompt" name="unsplashPrompt" type="text" placeholder="Unsplash Search Phrase" data-sb-validations="required" />
+                    <div class="invalid-feedback" data-sb-feedback="unsplashPrompt:required">Unsplash Search Phrase is required.</div>
+                </div>
+
                 <div class="mb-3">
                     <div class="form-check form-switch">
                         <input class="form-check-input" id="includeYt" type="checkbox" name="includeYt" value="true" />
@@ -65,28 +76,50 @@
 <script>
     var genImgChk = document.getElementById("generateImage");
     var genImgDiv = document.getElementById("genImgCollapse");
+    var unUrlChk = document.getElementById("unsplashImage");
+    var unUrlDiv = document.getElementById("unsplashImgCollapse")
+    var downloadImgChk = document.getElementById("downloadImage");
+    var downloadImgDiv = document.getElementById("downloadImgCollapse")
+    var ytUrlChk = document.getElementById("includeYt");
+    var ytUrlDiv = document.getElementById("ytUrlCollapse")
 
     // Add an event listener to the checkbox
     genImgChk.addEventListener("click", function() {
         if (genImgChk.checked) {
             genImgDiv.style.display = "block";
+            unUrlDiv.style.display = "none";
+            downloadImgDiv.style.display = "none";
+            unUrlChk.checked = false;
+            downloadImgChk.checked = false;
         } else {
             genImgDiv.style.display = "none";
         }
     });
 
-    var downloadImgChk = document.getElementById("downloadImage");
-    var downloadImgDiv = document.getElementById("downloadImgCollapse")
     downloadImgChk.addEventListener("click", function() {
         if (downloadImgChk.checked) {
             downloadImgDiv.style.display = "block";
+            unUrlDiv.style.display = "none";
+            genImgDiv.style.display = "none";
+            unUrlChk.checked = false;
+            genImgChk.checked = false;
         } else {
             downloadImgDiv.style.display = "none";
         }
     });
 
-    var ytUrlChk = document.getElementById("includeYt");
-    var ytUrlDiv = document.getElementById("ytUrlCollapse")
+    unUrlChk.addEventListener("click", function() {
+        if (unUrlChk.checked) {
+            unUrlDiv.style.display = "block";
+            downloadImgDiv.style.display = "none";
+            genImgDiv.style.display = "none";
+            genImgChk.checked = false;
+            downloadImgChk.checked = false;
+        } else {
+            unUrlDiv.style.display = "none";
+        }
+    });
+
     ytUrlChk.addEventListener("click", function() {
         if (ytUrlChk.checked) {
             ytUrlDiv.style.display = "block";
@@ -95,5 +128,23 @@
         }
     });
 
+
+    const form = document.getElementById('contentForm');
+    form.articleLength.oninput = function(){
+        document.getElementById('articleLengthLabel').innerHTML = 'Article Length - ' + form.articleLength.value;
+    }
+
+    // Get the form element and submit button
+    const submitButton = document.getElementById('submit');
+
+    // Add an event listener for form submission
+    form.addEventListener('submit', function(event) {
+        // Disable the submit button
+        submitButton.disabled = true;
+
+        // Show the spinner
+        submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Submitting...';
+
+    });
 </script>
 {{template "footer"}}

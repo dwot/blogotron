@@ -67,6 +67,31 @@ func GetSeriesById(id string) (Series, error) {
 	return series, nil
 }
 
+func AddSeriesReturningId(newSeries Series) (int, error) {
+	id := 0
+	tx, err := DB.Begin()
+	if err != nil {
+		return 0, err
+	}
+
+	stmt, err := tx.Prepare("INSERT INTO series (series_name, series_prompt, create_dt, update_dt) VALUES (?, ?, current_timestamp, current_timestamp) RETURNING id")
+
+	if err != nil {
+		return 0, err
+	}
+
+	defer stmt.Close()
+
+	err = stmt.QueryRow(newSeries.SeriesName, newSeries.SeriesPrompt).Scan(&id)
+
+	if err != nil {
+		return 0, err
+	}
+
+	tx.Commit()
+
+	return id, nil
+}
 func AddSeries(newSeries Series) (bool, error) {
 
 	tx, err := DB.Begin()

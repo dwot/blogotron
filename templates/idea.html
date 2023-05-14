@@ -15,4 +15,19 @@
             </form>
         </div>
     </section>
+<script>
+    // Get the form element and submit button
+    const form = document.getElementById('contentForm');
+    const submitButton = document.getElementById('submit');
+
+    // Add an event listener for form submission
+    form.addEventListener('submit', function(event) {
+        // Disable the submit button
+        submitButton.disabled = true;
+
+        // Show the spinner
+        submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Submitting...';
+
+    });
+</script>
 {{template "footer"}}
