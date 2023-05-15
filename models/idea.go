@@ -15,6 +15,15 @@ type Idea struct {
 	UpdateDate  string `json:"update_dt"`
 }
 
+func GetRandomIdea() Idea {
+	var idea Idea
+	err := DB.QueryRow("SELECT id, idea_text, status, idea_concept, series_id, create_dt, update_dt from idea WHERE status = 'NEW' ORDER BY RANDOM() LIMIT 1").Scan(&idea.Id, &idea.IdeaText, &idea.Status, &idea.IdeaConcept, &idea.SeriesId, &idea.CreateDate, &idea.UpdateDate)
+	if err != nil {
+		return Idea{}
+	}
+	return idea
+}
+
 func GetIdeas() ([]Idea, error) {
 
 	rows, err := DB.Query("SELECT id, idea_text, status, idea_concept, series_id, create_dt, update_dt from idea ")
@@ -160,7 +169,7 @@ func AddIdea(newIdea Idea) (bool, error) {
 	return true, nil
 }
 
-func SetIdeaWritten(ideaId int) (bool, error) {
+func SetIdeaWritten(ideaId string) (bool, error) {
 
 	tx, err := DB.Begin()
 	if err != nil {

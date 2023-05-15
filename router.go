@@ -9,7 +9,6 @@ import (
 	"golang/openai"
 	"golang/unsplash"
 	"html/template"
-	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -17,16 +16,26 @@ import (
 )
 
 type Post struct {
-	Title         string `json:"title"`
-	Content       string `json:"content"`
-	Description   string `json:"description"`
-	Image         []byte `json:"image"`
-	Prompt        string `json:"prompt"`
-	ImagePrompt   string `json:"image-prompt"`
-	Error         string `json:"error"`
-	ImageB64      string `json:"image64"`
-	Length        int    `json:"article-length"`
-	PublishStatus string `json:"publish-status"`
+	Title          string `json:"title"`
+	Content        string `json:"content"`
+	Description    string `json:"description"`
+	Image          []byte `json:"image"`
+	Prompt         string `json:"prompt"`
+	ImagePrompt    string `json:"image-prompt"`
+	Error          string `json:"error"`
+	ImageB64       string `json:"image64"`
+	Length         int    `json:"article-length"`
+	PublishStatus  string `json:"publish-status"`
+	UseGpt4        bool   `json:"use-gpt4"`
+	ConceptAsTitle bool   `json:"concept-as-title"`
+	IncludeYt      bool   `json:"include-yt"`
+	YtUrl          string `json:"yt-url"`
+	GenerateImg    bool   `json:"generate-img"`
+	DownloadImg    bool   `json:"download-img"`
+	ImgUrl         string `json:"img-url"`
+	UnsplashImg    bool   `json:"unsplash-img"`
+	IdeaId         string `json:"idea-id"`
+	UnsplashSearch string `json:"unsplash-search"`
 }
 
 type PageData struct {
@@ -442,101 +451,37 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	unsplashSearch := r.FormValue("unsplashPrompt")
 	publishStatus := r.FormValue("publishStatus")
 	conceptAsTitle := r.FormValue("conceptAsTitle")
-	article := ""
-	title := ""
 	var imgBytes []byte
 
 	iLen, convErr := strconv.Atoi(length)
 	if convErr != nil {
 		iLen = 500
 	}
+
 	post := Post{
-		Image:         imgBytes,
-		Prompt:        promptEntry,
-		ImagePrompt:   imgPrompt,
-		Length:        iLen,
-		PublishStatus: publishStatus,
-	}
-	useGpt4 := false
-	if gpt4 == "true" {
-		useGpt4 = true
-	}
-	newImgPrompt := ""
-	if promptEntry != "" {
-		wpTmpl := template.Must(template.New("web-prompt").Parse(viper.GetString("config.prompt.web-prompt")))
-		webPrompt := new(bytes.Buffer)
-		wpErr := wpTmpl.Execute(webPrompt, post)
-		if wpErr != nil {
-			post.Error = "Error generating web prompt from template: " + wpErr.Error()
-		}
-		fmt.Println("Prompt is: ", webPrompt.String())
-		articleResp, err := openai.GenerateArticle(useGpt4, webPrompt.String(), viper.GetString("config.prompt.system-prompt"))
-		if err != nil {
-			post.Error = "Error generating article from OpenAI API: " + err.Error()
-		}
-		article = articleResp
-		if conceptAsTitle == "false" {
-			titleResp, err := openai.GenerateTitle(false, article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
-			if err != nil {
-				post.Error = "Error generating title from OpenAI API: " + err.Error()
-			}
-			title = titleResp
-		} else {
-			title = promptEntry
-		}
-		if includeYt == "true" && ytUrl != "" {
-			article = article + "\n<p>[embed]" + ytUrl + "[/embed]</p>"
-		}
-		post.Content = article
-		post.Title = title
-	} else {
-		post.Error = "Please input an article idea first."
+		Title:          "",
+		Content:        "",
+		Description:    "",
+		Image:          imgBytes,
+		Prompt:         promptEntry,
+		ImagePrompt:    imgPrompt,
+		Error:          "",
+		ImageB64:       "",
+		Length:         iLen,
+		PublishStatus:  publishStatus,
+		UseGpt4:        gpt4 == "true",
+		ConceptAsTitle: conceptAsTitle == "true",
+		IncludeYt:      includeYt == "true",
+		YtUrl:          ytUrl,
+		GenerateImg:    generateImg == "true",
+		DownloadImg:    downloadImg == "true",
+		ImgUrl:         imgUrl,
+		UnsplashImg:    unsplashImg == "true",
+		IdeaId:         ideaId,
+		UnsplashSearch: unsplashSearch,
 	}
 
-	if post.Error == "" && generateImg == "true" && imgPrompt != "" {
-		fmt.Println("Img Prompt in is: ", imgPrompt)
-		imgTmpl := template.Must(template.New("img-prompt").Parse(viper.GetString("config.prompt.img-prompt")))
-		imgBuiltPrompt := new(bytes.Buffer)
-		imgErr := imgTmpl.Execute(imgBuiltPrompt, post)
-		if imgErr != nil {
-			post.Error = "Error generating image: " + imgErr.Error()
-		}
-		newImgPrompt = imgBuiltPrompt.String()
-		fmt.Println("Img Prompt out is: ", newImgPrompt)
-		imgBytes = generateImage(newImgPrompt)
-		post.Image = imgBytes
-	} else if post.Error == "" && downloadImg == "true" && imgUrl != "" {
-		response, err := http.Get(imgUrl)
-		if err != nil {
-			post.Error = "Error downloading image: " + err.Error()
-		}
-		defer func() {
-			response.Body.Close()
-		}()
-		if response.StatusCode != 200 {
-			post.Error = "Bad response code downloading image: " + strconv.Itoa(response.StatusCode)
-		}
-		imgBytes, err = io.ReadAll(response.Body)
-		if err != nil {
-			post.Error = "Error reading image bytes: " + err.Error()
-		}
-		post.Image = imgBytes
-	} else if post.Error == "" && unsplashImg == "true" && unsplashSearch != "" {
-		imgBytes = unsplash.GetImageBySearch(unsplashSearch)
-		post.Image = imgBytes
-	}
-	post.ImageB64 = base64.StdEncoding.EncodeToString(imgBytes)
-	fmt.Println(len(imgBytes))
-	postToWordpress(post)
-
-	updId, convErr := strconv.Atoi(ideaId)
-	if convErr != nil {
-		updId = 0
-	}
-	if updId > 0 {
-		models.SetIdeaWritten(updId)
-	}
-
+	post = writeArticle(post)
 	buf := &bytes.Buffer{}
 	err := resultsTpl.Execute(buf, post)
 	if err != nil {
