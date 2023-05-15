@@ -14,7 +14,7 @@ func checkErr(err error) {
 	}
 }
 func GetIdeas(c *gin.Context) {
-	ideas, err := models.GetIdeas(10)
+	ideas, err := models.GetIdeas()
 	checkErr(err)
 
 	if ideas == nil {

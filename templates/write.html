@@ -9,9 +9,23 @@
                     <div class="invalid-feedback" data-sb-feedback="articleConcept:required">Article Concept is required.</div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="articleLength" id="articleLengthLabel">Article Length - 750</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" id="conceptAsTitle" type="checkbox" name="conceptAsTitle" value="false" />
+                        <label class="form-check-label" for="conceptAsTitle">Use Concept as Title</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="articleLength" id="articleLengthLabel">Article Length: 750</label>
                     <input type="range" class="form-range" min="500" max="2500" step="250" id="articleLength" name="articleLength" value="750">
                     <div class="invalid-feedback" data-sb-feedback="imageUrl:required">Article Length is required.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="publishStatus" id="publishStatusLabel">Article Status</label>
+                    <select class="form-select" aria-label="Article Status Select" id="publishStatus" name="publishStatus">
+                        <option value="draft" selected>Draft</option>
+                        <option value="publish">Publish</option>
+                    </select>
+                    <div class="invalid-feedback" data-sb-feedback="publishStatus:required">Article Status is required.</div>
                 </div>
                 {{if .GPT4Enabled }}
                 <div class="mb-3">
@@ -67,7 +81,7 @@
                     <div class="invalid-feedback" data-sb-feedback="imageUrl:required">YT URL is required.</div>
                 </div>
                 <div class="d-grid">
-                    <button type="submit" value="Submit" class="btn btn-success btn-lg" id="submit">Submit</button>
+                    <button type="submit" value="Submit" class="btn btn-success" id="submit">Submit</button>
                 </div>
             </form>
         </div>
@@ -131,7 +145,7 @@
 
     const form = document.getElementById('contentForm');
     form.articleLength.oninput = function(){
-        document.getElementById('articleLengthLabel').innerHTML = 'Article Length - ' + form.articleLength.value;
+        document.getElementById('articleLengthLabel').innerHTML = 'Article Length: ' + form.articleLength.value;
     }
 
     // Get the form element and submit button

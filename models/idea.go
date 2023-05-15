@@ -3,7 +3,6 @@ package models
 import (
 	"database/sql"
 	_ "modernc.org/sqlite"
-	"strconv"
 )
 
 type Idea struct {
@@ -16,9 +15,9 @@ type Idea struct {
 	UpdateDate  string `json:"update_dt"`
 }
 
-func GetIdeas(count int) ([]Idea, error) {
+func GetIdeas() ([]Idea, error) {
 
-	rows, err := DB.Query("SELECT id, idea_text, status, idea_concept, series_id, create_dt, update_dt from idea LIMIT " + strconv.Itoa(count))
+	rows, err := DB.Query("SELECT id, idea_text, status, idea_concept, series_id, create_dt, update_dt from idea ")
 
 	if err != nil {
 		return nil, err

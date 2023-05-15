@@ -149,12 +149,14 @@ func postToWordpress(post Post) *wordpress.Post {
 		Username:   os.Getenv("WP_USERNAME"),
 		Password:   os.Getenv("WP_PASSWORD"),
 	})
-	newPost := &wordpress.Post{Title: wordpress.Title{
-		Raw: post.Title,
-	},
+	newPost := &wordpress.Post{
+		Title: wordpress.Title{
+			Raw: post.Title,
+		},
 		Content: wordpress.Content{
 			Raw: post.Content,
 		},
+		Status: post.PublishStatus,
 	}
 	if len(post.Image) > 0 {
 		fmt.Println("Processing Image Upload")

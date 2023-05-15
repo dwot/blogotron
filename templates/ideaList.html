@@ -1,7 +1,14 @@
 {{template "header"}}
-    <section class="container">
-        <div class="container px-5 my-5">
-            <form id="contentForm" action="/aiIdea" method="POST">
+<!-- Modal -->
+<div class="modal fade" id="aiIdeaModal" tabindex="-1" aria-labelledby="aiIdeaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="contentForm" action="/aiIdea" method="POST">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">AI Brainstorming</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
                 <div class="mb-3">
                     <label class="form-label" for="ideaConcept">AI Idea Starter</label>
                     <input class="form-control" id="ideaConcept" name="ideaConcept" type="text" placeholder="Idea Concept" data-sb-validations="required" />
@@ -13,18 +20,56 @@
                     <div class="invalid-feedback" data-sb-feedback="ideaCount:required">Idea Count is required.</div>
                 </div>
                 <div class="d-grid">
-                    <button type="submit" value="Submit" class="btn btn-success btn-lg" id="submit">Submit</button>
+
                 </div>
-            </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="submit" value="Submit" class="btn btn-primary" id="submit" >Submit</button>
+            </div>
         </div>
-    </section>
+        </form>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="manualModal" tabindex="-1" aria-labelledby="manualModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="manualForm" action="/ideaSave" method="POST">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="manualModalLabel">Manual Idea Add</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="ideaText">Idea</label>
+                        <input class="form-control" id="ideaText" name="ideaText" type="text" placeholder="Idea Text" data-sb-validations="required" value=""/>
+                        <div class="invalid-feedback" data-sb-feedback="imageUrl:required">Idea Text is required.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" value="Submit" class="btn btn-primary" id="manualFormSubmit" >Submit</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
     <section class="container">
         <div class="container px-5 my-5">
             <h4>Ideas</h4>
-            <ul>
-                <li><a href="/idea">Manual Add New</a></li>
-                <li><a href="/aiIdea">AI Add New 10x Generic</a></li>
-            </ul>
+            <!-- Button trigger modal -->
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#aiIdeaModal">
+                AI Brainstorm Ideas
+            </button>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#manualModal">
+                Manual Add New
+            </button>
+            <button type="button" class="btn btn-primary" id="aiBulkButton" onclick="aiBulkAdd()">
+                AI Add 10x Generic
+            </button>
             <table class="table table-hover">
                 <thead>
                 <tr>
@@ -60,6 +105,9 @@
     const form = document.getElementById('contentForm');
     const submitButton = document.getElementById('submit');
 
+    const form2 = document.getElementById('manualForm');
+    const submitButton2 = document.getElementById('manualFormSubmit');
+
     // Add an event listener for form submission
     form.addEventListener('submit', function(event) {
         // Disable the submit button
@@ -69,6 +117,28 @@
         submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Submitting...';
 
     });
+
+    form2.addEventListener('submit', function(event) {
+        // Disable the submit button
+        submitButton2.disabled = true;
+
+        // Show the spinner
+        submitButton2.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Submitting...';
+
+    });
+
+    const aiBulkButton = document.getElementById('aiBulkButton');
+    aiBulkButton.addEventListener('click', function(event) {
+        // Disable the submit button
+        aiBulkButton.disabled = true;
+
+        // Show the spinner
+        aiBulkButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Submitting...';
+
+    });
+    function aiBulkAdd() {
+        window.location.href = "/aiIdea";
+    }
 </script>
 
 {{template "footer"}}

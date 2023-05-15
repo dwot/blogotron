@@ -17,15 +17,16 @@ import (
 )
 
 type Post struct {
-	Title       string `json:"title"`
-	Content     string `json:"content"`
-	Description string `json:"description"`
-	Image       []byte `json:"image"`
-	Prompt      string `json:"prompt"`
-	ImagePrompt string `json:"image-prompt"`
-	Error       string `json:"error"`
-	ImageB64    string `json:"image64"`
-	Length      int    `json:"article-length"`
+	Title         string `json:"title"`
+	Content       string `json:"content"`
+	Description   string `json:"description"`
+	Image         []byte `json:"image"`
+	Prompt        string `json:"prompt"`
+	ImagePrompt   string `json:"image-prompt"`
+	Error         string `json:"error"`
+	ImageB64      string `json:"image64"`
+	Length        int    `json:"article-length"`
+	PublishStatus string `json:"publish-status"`
 }
 
 type PageData struct {
@@ -142,7 +143,7 @@ func ideaListHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func seriesListHandler(w http.ResponseWriter, _ *http.Request) {
-	series, err := models.GetSeries(50)
+	series, err := models.GetSeries()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -439,6 +440,8 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	ideaId := r.FormValue("ideaId")
 	unsplashImg := r.FormValue("unsplashImage")
 	unsplashSearch := r.FormValue("unsplashPrompt")
+	publishStatus := r.FormValue("publishStatus")
+	conceptAsTitle := r.FormValue("conceptAsTitle")
 	article := ""
 	title := ""
 	var imgBytes []byte
@@ -448,10 +451,11 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		iLen = 500
 	}
 	post := Post{
-		Image:       imgBytes,
-		Prompt:      promptEntry,
-		ImagePrompt: imgPrompt,
-		Length:      iLen,
+		Image:         imgBytes,
+		Prompt:        promptEntry,
+		ImagePrompt:   imgPrompt,
+		Length:        iLen,
+		PublishStatus: publishStatus,
 	}
 	useGpt4 := false
 	if gpt4 == "true" {
@@ -471,11 +475,15 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 			post.Error = "Error generating article from OpenAI API: " + err.Error()
 		}
 		article = articleResp
-		titleResp, err := openai.GenerateTitle(false, article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
-		if err != nil {
-			post.Error = "Error generating title from OpenAI API: " + err.Error()
+		if conceptAsTitle == "false" {
+			titleResp, err := openai.GenerateTitle(false, article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
+			if err != nil {
+				post.Error = "Error generating title from OpenAI API: " + err.Error()
+			}
+			title = titleResp
+		} else {
+			title = promptEntry
 		}
-		title = titleResp
 		if includeYt == "true" && ytUrl != "" {
 			article = article + "\n<p>[embed]" + ytUrl + "[/embed]</p>"
 		}
@@ -515,6 +523,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		post.Image = imgBytes
 	} else if post.Error == "" && unsplashImg == "true" && unsplashSearch != "" {
 		imgBytes = unsplash.GetImageBySearch(unsplashSearch)
+		post.Image = imgBytes
 	}
 	post.ImageB64 = base64.StdEncoding.EncodeToString(imgBytes)
 	fmt.Println(len(imgBytes))

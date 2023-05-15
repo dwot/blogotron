@@ -1,10 +1,42 @@
 {{template "header"}}
+<!-- Modal -->
+<div class="modal fade" id="seriesAddModal" tabindex="-1" aria-labelledby="seriesAddModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="contentForm" action="/seriesSave" method="POST">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Add New Series</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="seriesName">Series Name</label>
+                        <input class="form-control" id="seriesName" name="seriesName" type="text" placeholder="Series Name" data-sb-validations="required" value=""/>
+                        <div class="invalid-feedback" data-sb-feedback="seriesName:required">Series Name is required.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="seriesPrompt">Series Prompt</label>
+                        <input class="form-control" id="seriesPrompt" name="seriesPrompt" type="text" placeholder="Series Prompt" data-sb-validations="required" value=""/>
+                        <div class="invalid-feedback" data-sb-feedback="seriesPrompt:required">Series Prompt is required.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" value="Submit" class="btn btn-primary" id="submit" >Submit</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+
     <section class="container">
         <div class="container px-5 my-5">
             <h4>Series</h4>
-            <ul>
-                <li><a href="/series">Manual Add New</a></li>
-            </ul>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#seriesAddModal">
+                Add New Series
+            </button>
             <table class="table table-hover">
                 <thead>
                 <tr>
@@ -29,4 +61,20 @@
             </table>
         </div>
     </section>
+
+<script>
+    // Get the form element and submit button
+    const form = document.getElementById('contentForm');
+    const submitButton = document.getElementById('submit');
+
+    // Add an event listener for form submission
+    form.addEventListener('submit', function(event) {
+        // Disable the submit button
+        submitButton.disabled = true;
+
+        // Show the spinner
+        submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Submitting...';
+
+    });
+</script>
 {{template "footer"}}
