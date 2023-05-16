@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -63,13 +64,17 @@ type IdeaData struct {
 	Idea      interface{}
 }
 
-var resultsTpl = template.Must(template.ParseFiles("templates\\results.html", "templates\\base.html"))
-var writeTpl = template.Must(template.ParseFiles("templates\\write.html", "templates\\base.html"))
-var ideaListTpl = template.Must(template.ParseFiles("templates\\ideaList.html", "templates\\base.html"))
-var seriesListTpl = template.Must(template.ParseFiles("templates\\seriesList.html", "templates\\base.html"))
-var indexTpl = template.Must(template.ParseFiles("templates\\index.html", "templates\\base.html"))
-var ideaTpl = template.Must(template.ParseFiles("templates\\idea.html", "templates\\base.html"))
-var seriesTpl = template.Must(template.ParseFiles("templates\\series.html", "templates\\base.html"))
+func tmplPath(file string) string {
+	return filepath.Join("templates", file)
+}
+
+var resultsTpl = template.Must(template.ParseFiles(tmplPath("results.html"), tmplPath("base.html")))
+var writeTpl = template.Must(template.ParseFiles(tmplPath("write.html"), tmplPath("base.html")))
+var ideaListTpl = template.Must(template.ParseFiles(tmplPath("ideaList.html"), tmplPath("base.html")))
+var seriesListTpl = template.Must(template.ParseFiles(tmplPath("seriesList.html"), tmplPath("base.html")))
+var indexTpl = template.Must(template.ParseFiles(tmplPath("index.html"), tmplPath("base.html")))
+var ideaTpl = template.Must(template.ParseFiles(tmplPath("idea.html"), tmplPath("base.html")))
+var seriesTpl = template.Must(template.ParseFiles(tmplPath("series.html"), tmplPath("base.html")))
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	indexData := PageData{
