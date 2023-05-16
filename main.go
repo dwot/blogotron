@@ -5,12 +5,12 @@ import (
 	"context"
 	"embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-co-op/gocron"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/joho/godotenv"
-	"github.com/meitarim/go-wordpress"
 	"github.com/spf13/viper"
 	"golang/api"
 	"golang/config"
@@ -19,6 +19,8 @@ import (
 	"golang/stablediffusion"
 	"golang/unsplash"
 	"io"
+	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"strconv"
@@ -258,6 +260,7 @@ func writeArticle(post Post) Post {
 			fmt.Println("Img Gen is: ", imgGenResp)
 			imgGenResp = strings.Replace(imgGenResp, "\"", "", 1)
 			imgGenResp = strings.Replace(imgGenResp, "Create an image of ", "", 1)
+			imgGenResp = strings.Replace(imgGenResp, "Can you create an image of ", "", 1)
 			post.ImagePrompt = imgGenResp
 		}
 		fmt.Println("Img Prompt in is: ", post.ImagePrompt)
@@ -295,46 +298,6 @@ func writeArticle(post Post) Post {
 	postToWordpress(post)
 	models.SetIdeaWritten(post.IdeaId)
 	return post
-}
-
-func postToWordpress(post Post) *wordpress.Post {
-	client := wordpress.NewClient(&wordpress.Options{
-		BaseAPIURL: os.Getenv("WP_URL") + "/wp-json/wp/v2",
-		Username:   os.Getenv("WP_USERNAME"),
-		Password:   os.Getenv("WP_PASSWORD"),
-	})
-	newPost := &wordpress.Post{
-		Title: wordpress.Title{
-			Raw: post.Title,
-		},
-		Content: wordpress.Content{
-			Raw: post.Content,
-		},
-		Status: post.PublishStatus,
-	}
-	if len(post.Image) > 0 {
-		fmt.Println("Processing Image Upload")
-
-		media := &wordpress.MediaUploadOptions{
-			Filename:    "test-media.png",
-			ContentType: "image/png",
-			Data:        post.Image,
-		}
-		newMedia, resp, _, err := client.Media().Create(media)
-		handleError(err)
-		if resp.StatusCode != http.StatusCreated {
-			fmt.Println("Expected 201 Created, got" + resp.Status)
-		}
-		if newMedia != nil {
-			newPost.FeaturedImage = newMedia.ID
-		}
-	}
-
-	newPost, res, _, err := client.Posts().Create(newPost)
-	handleError(err)
-	fmt.Println(res)
-	//fmt.Printf("%+v\n", post)
-	return newPost
 }
 
 func generateIdeas(ideaCount string, builtConcept string, useGpt4 bool, sid int, ideaConcept string) {
@@ -396,6 +359,184 @@ func fullBrainstorm(ideaCount string, useGpt4 bool) {
 		builtConcept := "The topic for the ideas is: \"" + value + "\"."
 		generateIdeas(ideaCount, builtConcept, useGpt4, 0, value)
 	}
+}
+
+func doWordpressPost(endPoint string, postData map[string]interface{}) {
+	// Convert the post data to JSON
+	jsonData, err := json.Marshal(postData)
+	handleError(err)
+	fmt.Println(string(jsonData))
+
+	// Create an HTTP client
+	client := &http.Client{}
+
+	// Define the URL and request method
+	url := os.Getenv("WP_URL") + endPoint //"/wp-json/wp/v2/posts"
+	method := "POST"
+
+	// Define the authentication credentials
+	username := os.Getenv("WP_USERNAME")
+	password := os.Getenv("WP_PASSWORD")
+
+	// Create a request with the JSON data
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonData))
+	handleError(err)
+
+	// Calculate the content length
+	contentLength := strconv.Itoa(len(jsonData))
+
+	// Set the content type header
+	req.Header.Set("Content-Type", "application/json")
+	// Set the content length header
+	req.Header.Set("Content-Length", contentLength)
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Connection", "keep-alive")
+	// Set the host header
+	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(os.Getenv("WP_URL"), "https://", ""), "http://", ""))
+	req.Header.Set("User-Agent", "PostmanRuntime/7.26.8")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+
+	// Encode the username and password in base64
+	auth := username + ":" + password
+	basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+
+	// Set the Authorization header for basic authentication
+	req.Header.Set("Authorization", basicAuth)
+
+	// Send the request
+	res, err := client.Do(req)
+	handleError(err)
+	defer res.Body.Close()
+
+	// Check the response status code
+	if res.StatusCode != http.StatusCreated {
+		fmt.Println("Post creation failed. Status code:", res.StatusCode)
+		return
+	}
+}
+
+type MediaResponse struct {
+	ID int `json:"id"`
+}
+
+func postImageToWordpress(imgBytes []byte) int {
+	// Create a new multipart writer
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Create a new form file field for the image
+	part, err := writer.CreateFormFile("file", "image.jpg")
+	if err != nil {
+		fmt.Println("Error creating form file field:", err)
+		return 0
+	}
+
+	// Copy the image bytes to the form file field
+	_, err = io.Copy(part, bytes.NewReader(imgBytes))
+	if err != nil {
+		fmt.Println("Error copying image bytes:", err)
+		return 0
+	}
+
+	// Close the multipart writer
+	err = writer.Close()
+	if err != nil {
+		fmt.Println("Error closing multipart writer:", err)
+		return 0
+	}
+	// Create an HTTP client
+	client := &http.Client{}
+
+	// Define the URL and request method
+	url := os.Getenv("WP_URL") + "/wp-json/wp/v2/media"
+	method := "POST"
+
+	// Define the authentication credentials
+	username := os.Getenv("WP_USERNAME")
+	password := os.Getenv("WP_PASSWORD")
+
+	// Create a request with the multipart body
+	req, err := http.NewRequest(method, url, body)
+	handleError(err)
+
+	// Calculate the content length
+	contentLength := strconv.Itoa(body.Len())
+
+	// Set the content type header
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	// Set the content length header
+	req.Header.Set("Content-Length", contentLength)
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Connection", "keep-alive")
+	// Set the host header
+	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(os.Getenv("WP_URL"), "https://", ""), "http://", ""))
+	req.Header.Set("User-Agent", "PostmanRuntime/7.26.8")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+
+	// Encode the username and password in base64
+	auth := username + ":" + password
+	basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+
+	// Set the Authorization header for basic authentication
+	req.Header.Set("Authorization", basicAuth)
+	// Send the request
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error sending request:", err)
+		return 0
+	}
+	defer res.Body.Close()
+
+	// Read the response body
+	responseBody, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("Error reading response body:", err)
+		return 0
+	}
+
+	// Check the response status code
+	if res.StatusCode != http.StatusCreated {
+		fmt.Println("Image upload failed. Status code:", res.StatusCode)
+		fmt.Println("Response body:", string(responseBody))
+		return 0
+	}
+
+	// Parse the response body to get the media ID
+	var mediaResp MediaResponse
+	err = json.Unmarshal(responseBody, &mediaResp)
+	if err != nil {
+		fmt.Println("Error parsing response body:", err)
+		return 0
+	}
+
+	mediaID := mediaResp.ID
+	fmt.Println("Image uploaded successfully! Media ID:", mediaID)
+	return mediaID
+}
+
+func postToWordpress(post Post) {
+	postData := map[string]interface{}{}
+	if len(post.Image) > 0 {
+		fmt.Println("Processing Image Upload")
+		mediaID := postImageToWordpress(post.Image)
+		postData = map[string]interface{}{
+			"title":          post.Title,
+			"content":        post.Content,
+			"status":         post.PublishStatus,
+			"featured_media": mediaID,
+		}
+	} else {
+		// Define the post data
+		postData = map[string]interface{}{
+			"title":   post.Title,
+			"content": post.Content,
+			"status":  post.PublishStatus,
+		}
+	}
+	doWordpressPost("/wp-json/wp/v2/posts", postData)
+	fmt.Println("Post created successfully!")
 }
 
 func handleError(err error) {

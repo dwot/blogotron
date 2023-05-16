@@ -2,9 +2,7 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
 	"golang/models"
-	"golang/unsplash"
 	"html/template"
 	"net/http"
 	"os"
@@ -425,16 +423,20 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func testHandler(w http.ResponseWriter, r *http.Request) {
-	//imgBytes := unsplash.GetRandomImage()
-	imgBytes := unsplash.GetImageBySearch("cat")
-	imgPrompt := "Testing unsplash random image"
-	promptEntry := "Testing unsplash random image"
+
 	post := Post{
-		Image:       imgBytes,
-		Prompt:      promptEntry,
-		ImagePrompt: imgPrompt,
+		Title:          "Test Post 007",
+		Content:        "This is a test post from code for real this time",
+		PublishStatus:  "draft",
+		UseGpt4:        false,
+		ConceptAsTitle: false,
+		IncludeYt:      false,
+		GenerateImg:    false,
+		DownloadImg:    false,
+		UnsplashImg:    false,
+		IdeaId:         "",
 	}
-	post.ImageB64 = base64.StdEncoding.EncodeToString(imgBytes)
+	postToWordpress(post)
 	buf := &bytes.Buffer{}
 	err := resultsTpl.Execute(buf, post)
 	handleError(err)
