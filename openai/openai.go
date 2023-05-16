@@ -69,7 +69,6 @@ func generate(useGpt4 bool, prompt string, systemPrompt string, article ...strin
 		Role:    openai.ChatMessageRoleUser,
 		Content: prompt,
 	})
-	fmt.Println("Messages are: ", messages)
 	resp, err := client.CreateChatCompletion(context.Background(), openai.ChatCompletionRequest{
 		Model:    model,
 		Messages: messages,

@@ -5,13 +5,19 @@ config:
     sampler-name: |
       DPM++ 2M
   prompt:
+    topic-prompt: |
+      Come up with {{.IdeaCount}} new and different topics to write multiple blog posts about. {{.IdeaConcept}}  Each of your new topics should be completely different from the provided existing topics but appeal to the same general audience and be appropriate for the same blog.  The should be broad categories that can be used to drive ideas for many blog articles. Return the results as a single line, unnumbered Pipe-Delimitted list. Each topic should not be encapsulated in quotation marks.
     idea-prompt: |
-        Come up with 10 new ideas for articles. Return the results in unnumbered Pipe-Delimitted format.  The expected format is: "Idea"|
+        Come up with {{.IdeaCount}} new ideas for articles. {{.IdeaConcept}} Return the results as a single line, unnumbered Pipe-Delimitted list. Each idea should not be encapsulated in quotation marks.
     title-prompt: |
       Find a title for your article. Use the language of the article.
     system-prompt: |
       You are blog writer and you want to write a new article.
     web-prompt: |
-      Write an {{.Length}} word blog article about {{.Prompt}}.
+      Write an article about {{.Prompt}}.  The article should be {{.Length}} words long and it should use HTML headings and subheadings to organize the article.  Include a good title wrapped in an h1 tag.
     img-prompt: |
       {{.ImagePrompt}}
+    imgsearch-prompt: |
+      Come up with a simple search term to find an image on Unsplash to use in your article.
+    imggen-prompt: |
+      Come up with a good prompt to give to Dall-E to generate an image to accompany your article.

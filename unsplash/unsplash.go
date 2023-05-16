@@ -23,9 +23,7 @@ func GetImageBySearch(searchString string) []byte {
 	opt := unsplash.SearchOpt{}
 	opt.Query = searchString
 	searchResults, _, err := unClient.Search.Photos(&opt)
-	if err != nil {
-		fmt.Println("Error getting random photo: " + err.Error())
-	}
+	handleError(err)
 	imgUrl := ""
 	for _, c := range *searchResults.Results {
 		imgUrl = c.Urls.Regular.URL.String()
@@ -33,9 +31,7 @@ func GetImageBySearch(searchString string) []byte {
 	}
 	response, err := http.Get(imgUrl)
 
-	if err != nil {
-		fmt.Println("Error downloading image: " + err.Error())
-	}
+	handleError(err)
 	defer func() {
 		response.Body.Close()
 	}()
@@ -43,12 +39,7 @@ func GetImageBySearch(searchString string) []byte {
 		fmt.Println("Bad response code downloading image: " + strconv.Itoa(response.StatusCode))
 	}
 	imgBytes, err = io.ReadAll(response.Body)
-	if err != nil {
-		fmt.Println("Error reading image bytes: " + err.Error())
-	}
-	if err != nil {
-		fmt.Println("Error getting random photo: " + err.Error())
-	}
+	handleError(err)
 	return imgBytes
 }
 
@@ -64,18 +55,14 @@ func GetRandomImage() []byte {
 	// requests can be now made to the API
 
 	randomPhoto, _, err := unClient.Photos.Random(nil)
-	if err != nil {
-		fmt.Println("Error getting random photo: " + err.Error())
-	}
+	handleError(err)
 	imgUrl := ""
 	for _, c := range *randomPhoto {
 		imgUrl = c.Urls.Regular.URL.String()
 	}
 	response, err := http.Get(imgUrl)
 
-	if err != nil {
-		fmt.Println("Error downloading image: " + err.Error())
-	}
+	handleError(err)
 	defer func() {
 		response.Body.Close()
 	}()
@@ -83,11 +70,12 @@ func GetRandomImage() []byte {
 		fmt.Println("Bad response code downloading image: " + strconv.Itoa(response.StatusCode))
 	}
 	imgBytes, err = io.ReadAll(response.Body)
-	if err != nil {
-		fmt.Println("Error reading image bytes: " + err.Error())
-	}
-	if err != nil {
-		fmt.Println("Error getting random photo: " + err.Error())
-	}
+	handleError(err)
 	return imgBytes
+}
+
+func handleError(err error) {
+	if err != nil {
+		fmt.Println("Error: ", err.Error())
+	}
 }

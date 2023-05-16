@@ -3,10 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
-	"github.com/spf13/viper"
 	"golang/models"
-	"golang/openai"
 	"golang/unsplash"
 	"html/template"
 	"net/http"
@@ -80,14 +77,9 @@ func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err := indexTpl.Execute(buf, indexData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	handleError(err)
 	_, err = buf.WriteTo(w)
-	if err != nil {
-		fmt.Println("Err rendering menu:" + err.Error())
-	}
+	handleError(err)
 }
 
 func writeHandler(w http.ResponseWriter, r *http.Request) {
@@ -98,10 +90,8 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	ideaText := ""
 	if id > 0 {
-		idea, dbErr := models.GetIdeaById(ideaId)
-		if dbErr != nil {
-			fmt.Println("Err looking up idea by id:" + dbErr.Error())
-		}
+		idea, err := models.GetIdeaById(ideaId)
+		handleError(err)
 		ideaText = idea.IdeaText
 	}
 
@@ -118,22 +108,14 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err = writeTpl.Execute(buf, writeData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	handleError(err)
 	_, err = buf.WriteTo(w)
-	if err != nil {
-		fmt.Println("Err rendering menu:" + err.Error())
-	}
+	handleError(err)
 }
 
 func ideaListHandler(w http.ResponseWriter, _ *http.Request) {
 	ideas, err := models.GetOpenIdeas()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	handleError(err)
 	planData := PlanData{
 		ErrorCode: "",
 		Ideas:     ideas,
@@ -141,22 +123,14 @@ func ideaListHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err = ideaListTpl.Execute(buf, planData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	handleError(err)
 	_, err = buf.WriteTo(w)
-	if err != nil {
-		fmt.Println("Err rendering menu:" + err.Error())
-	}
+	handleError(err)
 }
 
 func seriesListHandler(w http.ResponseWriter, _ *http.Request) {
 	series, err := models.GetSeries()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	handleError(err)
 	planData := PlanData{
 		ErrorCode: "",
 		Ideas:     nil,
@@ -164,14 +138,9 @@ func seriesListHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err = seriesListTpl.Execute(buf, planData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	handleError(err)
 	_, err = buf.WriteTo(w)
-	if err != nil {
-		fmt.Println("Err rendering menu:" + err.Error())
-	}
+	handleError(err)
 }
 
 func ideaHandler(w http.ResponseWriter, r *http.Request) {
@@ -188,9 +157,7 @@ func ideaHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if id > 0 {
 		idea, err := models.GetIdeaById(ideaId)
-		if err != nil {
-			fmt.Println("Err getting idea:" + err.Error())
-		}
+		handleError(err)
 		ideaData = IdeaData{
 			ErrorCode: "",
 			Idea:      idea,
@@ -205,14 +172,9 @@ func ideaHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err := ideaTpl.Execute(buf, ideaData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	handleError(err)
 	_, err = buf.WriteTo(w)
-	if err != nil {
-		fmt.Println("Err rendering menu:" + err.Error())
-	}
+	handleError(err)
 }
 
 func seriesHandler(w http.ResponseWriter, r *http.Request) {
@@ -224,13 +186,9 @@ func seriesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if id > 0 {
 		series, err := models.GetSeriesById(seriesId)
-		if err != nil {
-			fmt.Println("Err getting series:" + err.Error())
-		}
+		handleError(err)
 		ideas, err := models.GetOpenSeriesIdeas(seriesId)
-		if err != nil {
-			fmt.Println("Err getting series ideas:" + err.Error())
-		}
+		handleError(err)
 		seriesData = SeriesData{
 			ErrorCode: "",
 			Series:    series,
@@ -246,14 +204,9 @@ func seriesHandler(w http.ResponseWriter, r *http.Request) {
 
 	buf := &bytes.Buffer{}
 	err := seriesTpl.Execute(buf, seriesData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	handleError(err)
 	_, err = buf.WriteTo(w)
-	if err != nil {
-		fmt.Println("Err rendering series:" + err.Error())
-	}
+	handleError(err)
 }
 
 func aiIdeaHandler(w http.ResponseWriter, r *http.Request) {
@@ -266,54 +219,50 @@ func aiIdeaHandler(w http.ResponseWriter, r *http.Request) {
 	sid, convErr := strconv.Atoi(seriesId)
 	if convErr != nil {
 		sid = 0
+		seriesId = "0"
 	}
-	ideaConcept := r.FormValue("ideaConcept")
-	builtConcept := ideaConcept
-	if sid > 0 {
-		series, _ := models.GetSeriesById(seriesId)
-		if strings.TrimSpace(series.SeriesPrompt) != "" {
-			builtConcept = "The topic for the ideas is: \"" + series.SeriesPrompt + "\"."
-		}
-	} else {
-		if strings.TrimSpace(ideaConcept) != "" {
-			builtConcept = "The topic for the ideas is: \"" + ideaConcept + "\"."
-		}
-	}
-
 	ideaCount := r.FormValue("ideaCount")
 	if strings.TrimSpace(ideaCount) == "" {
 		ideaCount = "10"
 	}
-	prompt := Prompt{
-		IdeaCount:   ideaCount,
-		IdeaConcept: builtConcept,
-	}
-	ideaTmpl := template.Must(template.New("idea-prompt").Parse(viper.GetString("config.prompt.idea-prompt")))
-	ideaPrompt := new(bytes.Buffer)
-	wpErr := ideaTmpl.Execute(ideaPrompt, prompt)
-	if wpErr != nil {
-		fmt.Println("Err rendering idea prompt:" + wpErr.Error())
-	}
-	fmt.Println("Prompt is: ", ideaPrompt.String())
-	ideaResp, err := openai.GenerateArticle(useGpt4, ideaPrompt.String(), viper.GetString("config.prompt.system-prompt"))
-	if err != nil {
-		fmt.Println("Err rendering idea response:" + err.Error())
-	}
-	ideaResp = strings.ReplaceAll(ideaResp, "\n", "")
-	fmt.Println("Idea Brainstorm Results: " + ideaResp)
-	ideaList := strings.Split(ideaResp, "|")
-	for index, value := range ideaList {
-		fmt.Printf("Index: %d, Value: %s\n", index, value)
-		if strings.TrimSpace(value) != "" {
-			idea := models.Idea{
-				IdeaText:    strings.TrimSpace(value),
-				Status:      "NEW",
-				IdeaConcept: ideaConcept,
-				SeriesId:    sid,
+	ideaConcept := r.FormValue("ideaConcept")
+	builtConcept := ideaConcept
+	builtFresh := false
+	if sid > 0 {
+		series, _ := models.GetSeriesById(seriesId)
+		if strings.TrimSpace(series.SeriesPrompt) != "" {
+			ideaList := ""
+			builtConcept = "The topic for the ideas is: \"" + series.SeriesPrompt + "\"."
+			//Get ideas for this series and iterate them adding existing ideas to a list of ideas
+			ideas, _ := models.GetSeriesIdeas(seriesId)
+			for _, idea := range ideas {
+				ideaList = ideaList + ", " + idea.IdeaText
 			}
-			_, err = models.AddIdea(idea)
+			if strings.TrimSpace(ideaList) != "" {
+				builtConcept = builtConcept + " The following ideas have already been used: " + ideaList + "."
+			}
 		}
+	} else {
+		ideaList := ""
+		if strings.TrimSpace(ideaConcept) != "" {
+			builtConcept = "The topic for the ideas is: \"" + ideaConcept + "\"."
+			ideas, _ := models.GetIdeasByConcept(ideaConcept)
+			for _, idea := range ideas {
+				ideaList = ideaList + ", " + idea.IdeaText
+			}
+			if strings.TrimSpace(ideaList) != "" {
+				builtConcept = builtConcept + " The following ideas have already been used: " + ideaList + "."
+			}
+		} else {
+			fullBrainstorm(ideaCount, useGpt4)
+			builtFresh = true
+		}
+
 	}
+	if !builtFresh {
+		generateIdeas(ideaCount, builtConcept, useGpt4, sid, ideaConcept)
+	}
+
 	if sid > 0 {
 		seriesHandler(w, r)
 	} else {
@@ -342,9 +291,7 @@ func ideaSaveHandler(w http.ResponseWriter, r *http.Request) {
 			SeriesId: sid,
 		}
 		_, err := models.UpdateIdea(idea, id)
-		if err != nil {
-			fmt.Println("Err saving idea:" + err.Error())
-		}
+		handleError(err)
 	} else {
 		//Insert New
 		idea := models.Idea{
@@ -353,9 +300,7 @@ func ideaSaveHandler(w http.ResponseWriter, r *http.Request) {
 			SeriesId: sid,
 		}
 		_, err := models.AddIdea(idea)
-		if err != nil {
-			fmt.Println("Err saving idea:" + err.Error())
-		}
+		handleError(err)
 	}
 	if sid > 0 {
 		seriesHandler(w, r)
@@ -380,9 +325,7 @@ func seriesSaveHandler(w http.ResponseWriter, r *http.Request) {
 			SeriesPrompt: seriesPrompt,
 		}
 		_, err := models.UpdateSeries(series, id)
-		if err != nil {
-			fmt.Println("Err saving series:" + err.Error())
-		}
+		handleError(err)
 	} else {
 		//Insert New
 		series := models.Series{
@@ -390,22 +333,14 @@ func seriesSaveHandler(w http.ResponseWriter, r *http.Request) {
 			SeriesPrompt: seriesPrompt,
 		}
 		id, err := models.AddSeriesReturningId(series)
-		if err != nil {
-			fmt.Println("Err saving series:" + err.Error())
-		} else {
-			fmt.Println("Saved series with id: " + strconv.Itoa(id))
-		}
+		handleError(err)
 		seriesId = strconv.Itoa(id)
 	}
 
 	series, err := models.GetSeriesById(seriesId)
-	if err != nil {
-		fmt.Println("Err getting series:" + err.Error())
-	}
+	handleError(err)
 	ideas, err := models.GetOpenSeriesIdeas(seriesId)
-	if err != nil {
-		fmt.Println("Err getting series ideas:" + err.Error())
-	}
+	handleError(err)
 	seriesData := SeriesData{
 		ErrorCode: "",
 		Series:    series,
@@ -413,14 +348,9 @@ func seriesSaveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err = seriesTpl.Execute(buf, seriesData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	handleError(err)
 	_, err = buf.WriteTo(w)
-	if err != nil {
-		fmt.Println("Err rendering series:" + err.Error())
-	}
+	handleError(err)
 }
 
 func ideaRemoveHandler(w http.ResponseWriter, r *http.Request) {
@@ -484,14 +414,9 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	post = writeArticle(post)
 	buf := &bytes.Buffer{}
 	err := resultsTpl.Execute(buf, post)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	_, wtErr := buf.WriteTo(w)
-	if wtErr != nil {
-		fmt.Println("Error rendering results html:" + wtErr.Error())
-	}
+	handleError(err)
+	_, err = buf.WriteTo(w)
+	handleError(err)
 }
 
 func testHandler(w http.ResponseWriter, r *http.Request) {
@@ -507,12 +432,7 @@ func testHandler(w http.ResponseWriter, r *http.Request) {
 	post.ImageB64 = base64.StdEncoding.EncodeToString(imgBytes)
 	buf := &bytes.Buffer{}
 	err := resultsTpl.Execute(buf, post)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	_, wtErr := buf.WriteTo(w)
-	if wtErr != nil {
-		fmt.Println("Error rendering results html:" + wtErr.Error())
-	}
+	handleError(err)
+	_, err = buf.WriteTo(w)
+	handleError(err)
 }

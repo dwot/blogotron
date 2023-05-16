@@ -24,6 +24,15 @@ func GetRandomIdea() Idea {
 	return idea
 }
 
+func GetOpenIdeaCount() int {
+	var count int
+	err := DB.QueryRow("SELECT count(*) from idea WHERE status = 'NEW' and series_id = 0").Scan(&count)
+	if err != nil {
+		return 0
+	}
+	return count
+}
+
 func GetIdeas() ([]Idea, error) {
 
 	rows, err := DB.Query("SELECT id, idea_text, status, idea_concept, series_id, create_dt, update_dt from idea ")
@@ -90,6 +99,103 @@ func GetOpenIdeas() ([]Idea, error) {
 
 func GetOpenSeriesIdeas(id string) ([]Idea, error) {
 	stmt, err := DB.Prepare("SELECT id, idea_text, status, idea_concept, series_id, create_dt, update_dt from idea WHERE status = 'NEW' and series_id = ?")
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := stmt.Query(id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	idea := make([]Idea, 0)
+
+	for rows.Next() {
+		singleIdea := Idea{}
+		err = rows.Scan(&singleIdea.Id, &singleIdea.IdeaText, &singleIdea.Status, &singleIdea.IdeaConcept, &singleIdea.SeriesId, &singleIdea.CreateDate, &singleIdea.UpdateDate)
+
+		if err != nil {
+			return nil, err
+		}
+
+		idea = append(idea, singleIdea)
+	}
+
+	err = rows.Err()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return idea, err
+}
+
+func GetIdeaConcepts() ([]string, error) {
+	rows, err := DB.Query("SELECT DISTINCT idea_concept from idea WHERE idea_concept != ''")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	concepts := make([]string, 0)
+
+	for rows.Next() {
+		var concept string
+		err = rows.Scan(&concept)
+
+		if err != nil {
+			return nil, err
+		}
+
+		concepts = append(concepts, concept)
+	}
+
+	err = rows.Err()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return concepts, err
+}
+
+func GetIdeasByConcept(concept string) ([]Idea, error) {
+	stmt, err := DB.Prepare("SELECT id, idea_text, status, idea_concept, series_id, create_dt, update_dt from idea WHERE idea_concept = ?")
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := stmt.Query(concept)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	idea := make([]Idea, 0)
+
+	for rows.Next() {
+		singleIdea := Idea{}
+		err = rows.Scan(&singleIdea.Id, &singleIdea.IdeaText, &singleIdea.Status, &singleIdea.IdeaConcept, &singleIdea.SeriesId, &singleIdea.CreateDate, &singleIdea.UpdateDate)
+
+		if err != nil {
+			return nil, err
+		}
+
+		idea = append(idea, singleIdea)
+	}
+
+	err = rows.Err()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return idea, err
+}
+
+func GetSeriesIdeas(id string) ([]Idea, error) {
+	stmt, err := DB.Prepare("SELECT id, idea_text, status, idea_concept, series_id, create_dt, update_dt from idea WHERE series_id = ?")
 	if err != nil {
 		return nil, err
 	}

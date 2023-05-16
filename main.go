@@ -19,10 +19,10 @@ import (
 	"golang/stablediffusion"
 	"golang/unsplash"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,25 +34,17 @@ var MigrationSrc embed.FS
 
 func main() {
 	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	handleError(err)
 	config.ParseConfig()
 
 	//DB
 	dbName := os.Getenv("BLOGOTRON_DB_NAME")
 	err = models.ConnectDatabase(dbName)
-	if err != nil {
-		log.Fatal("Error connecting DB " + err.Error())
-	}
+	handleError(err)
 	migSrc, err := iofs.New(MigrationSrc, "sql/migrations")
-	if err != nil {
-		log.Fatal("Error loading db migration " + err.Error())
-	}
+	handleError(err)
 	err = models.MigrateDatabase(migSrc)
-	if err != nil {
-		log.Fatal("Error migrating DB " + err.Error())
-	}
+	handleError(err)
 
 	//API
 	apiPort := os.Getenv("BLOGOTRON_API_PORT")
@@ -95,36 +87,54 @@ func main() {
 	//Cron Service
 	autoPost := os.Getenv("AUTO_POST_ENABLE")
 	autoPostInterval := os.Getenv("AUTO_POST_INTERVAL")
+	autoPostImgEngine := os.Getenv("AUTO_POST_IMG_ENGINE")
+	autoPostLen := os.Getenv("AUTO_POST_LEN")
+	autoPostState := os.Getenv("AUTO_POST_STATE")
+	lowIdeaThreshold := os.Getenv("LOW_IDEA_THRESHOLD")
 	cronSrv := gocron.NewScheduler(time.UTC)
+	iThreshold, convErr := strconv.Atoi(lowIdeaThreshold)
+	if convErr != nil {
+		iThreshold = 0
+	}
+	if iThreshold > 0 {
+		cronSrv.Every("1h").Do(func() {
+			//Check count of total open ideas
+			ideaCount := models.GetOpenIdeaCount()
+			fmt.Println("Idea Count: " + strconv.Itoa(ideaCount) + " Threshold: " + strconv.Itoa(iThreshold))
+			if ideaCount < iThreshold {
+				fullBrainstorm("10", false)
+			}
+		})
+	}
 	if autoPost == "true" {
 		cronSrv.Every(autoPostInterval).Do(func() {
-			fmt.Println("Posting Time")
 			//Get a Random Idea
 			idea := models.GetRandomIdea()
 			//Create a new post from the idea
-			iLen := 1000
-			publishStatus := "publish"
+			iLen, convErr := strconv.Atoi(autoPostLen)
+			if convErr != nil {
+				iLen = 750
+			}
+			publishStatus := autoPostState
 			unsplashSearch := ""
+			unsplashImg := false
+			generateImg := false
+			if autoPostImgEngine == "unsplash" {
+				unsplashImg = true
+			} else if autoPostImgEngine == "generate" {
+				generateImg = true
+			}
 
 			post := Post{
-				Title:          "",
-				Content:        "",
-				Description:    "",
-				Image:          []byte{},
 				Prompt:         idea.IdeaText,
-				ImagePrompt:    "",
-				Error:          "",
-				ImageB64:       "",
 				Length:         iLen,
 				PublishStatus:  publishStatus,
 				UseGpt4:        false,
 				ConceptAsTitle: false,
 				IncludeYt:      false,
-				YtUrl:          "",
-				GenerateImg:    false,
+				GenerateImg:    generateImg,
 				DownloadImg:    false,
-				ImgUrl:         "",
-				UnsplashImg:    true,
+				UnsplashImg:    unsplashImg,
 				IdeaId:         strconv.Itoa(idea.Id),
 				UnsplashSearch: unsplashSearch,
 			}
@@ -146,9 +156,7 @@ func main() {
 	fmt.Println("Starting Web Server")
 	go func() {
 		err = http.ListenAndServe(":"+webPort, mux)
-		if err != nil {
-			fmt.Println("Error starting http server:" + err.Error())
-		}
+		handleError(err)
 		wg.Done()
 	}()
 	fmt.Println("Started Web Server")
@@ -167,8 +175,6 @@ func main() {
 func generateImage(p string) []byte {
 	var imgBytes []byte
 	if p != "" {
-		fmt.Println("Negatives:" + viper.GetString("config.settings.image-negatives"))
-		fmt.Println("OK We're going to get an image!" + p)
 		if os.Getenv("IMG_MODE") == "openai" {
 			imgBytes = openai.GenerateImg(p)
 		} else if os.Getenv("IMG_MODE") == "sd" {
@@ -190,9 +196,7 @@ func generateImage(p string) []byte {
 				OverrideSettingsRestoreAfterwards: false,
 				SaveImages:                        true,
 			})
-			if err != nil {
-				fmt.Println("Err" + err.Error())
-			}
+			handleError(err)
 			imgBytes = images.Images[0]
 		} else {
 			fmt.Println("image generation disabled")
@@ -208,24 +212,35 @@ func writeArticle(post Post) Post {
 	if post.Prompt != "" {
 		wpTmpl := template.Must(template.New("web-prompt").Parse(viper.GetString("config.prompt.web-prompt")))
 		webPrompt := new(bytes.Buffer)
-		wpErr := wpTmpl.Execute(webPrompt, post)
-		if wpErr != nil {
-			post.Error = "Error generating web prompt from template: " + wpErr.Error()
-		}
+		err := wpTmpl.Execute(webPrompt, post)
+		handleError(err)
 		fmt.Println("Prompt is: ", webPrompt.String())
 		articleResp, err := openai.GenerateArticle(post.UseGpt4, webPrompt.String(), viper.GetString("config.prompt.system-prompt"))
-		if err != nil {
-			post.Error = "Error generating article from OpenAI API: " + err.Error()
-		}
+		handleError(err)
 		article = articleResp
-		if post.ConceptAsTitle {
-			titleResp, err := openai.GenerateTitle(false, article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
-			if err != nil {
-				post.Error = "Error generating title from OpenAI API: " + err.Error()
+		//Attempt to parse out title from h1 tag
+		if strings.Contains(article, "<h1>") && strings.Contains(article, "</h1>") && strings.HasPrefix(article, "<h1>") {
+			fmt.Println("Detected Title")
+			tempTitle := strings.Split(strings.Split(article, "<h1>")[1], "</h1>")[0]
+			if tempTitle == "Introduction" {
+				fmt.Println("Title is Introduction, skipping")
+			} else {
+				title = tempTitle
+				//Remove title from article
+				article = strings.Replace(article, "<h1>"+title+"</h1>", "", 1)
+				fmt.Println("Removed Title: " + title)
+				//Remove any leading newlines from article
+				article = strings.TrimPrefix(article, "\n")
 			}
-			title = titleResp
-		} else {
-			title = post.Prompt
+		}
+		if title == "" {
+			if !post.ConceptAsTitle {
+				titleResp, err := openai.GenerateTitle(false, article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
+				handleError(err)
+				title = titleResp
+			} else {
+				title = post.Prompt
+			}
 		}
 		if post.IncludeYt && post.YtUrl != "" {
 			article = article + "\n<p>[embed]" + post.YtUrl + "[/embed]</p>"
@@ -236,22 +251,26 @@ func writeArticle(post Post) Post {
 		post.Error = "Please input an article idea first."
 	}
 
-	if post.Error == "" && post.GenerateImg && post.ImagePrompt != "" {
+	if post.Error == "" && post.GenerateImg {
+		if post.ImagePrompt == "" {
+			imgGenResp, err := openai.GenerateTitle(false, title, viper.GetString("config.prompt.imggen-prompt"), viper.GetString("config.prompt.system-prompt"))
+			handleError(err)
+			fmt.Println("Img Gen is: ", imgGenResp)
+			imgGenResp = strings.Replace(imgGenResp, "\"", "", 1)
+			imgGenResp = strings.Replace(imgGenResp, "Create an image of ", "", 1)
+			post.ImagePrompt = imgGenResp
+		}
 		fmt.Println("Img Prompt in is: ", post.ImagePrompt)
 		imgTmpl := template.Must(template.New("img-prompt").Parse(viper.GetString("config.prompt.img-prompt")))
 		imgBuiltPrompt := new(bytes.Buffer)
-		imgErr := imgTmpl.Execute(imgBuiltPrompt, post)
-		if imgErr != nil {
-			post.Error = "Error generating image: " + imgErr.Error()
-		}
+		err := imgTmpl.Execute(imgBuiltPrompt, post)
+		handleError(err)
 		newImgPrompt = imgBuiltPrompt.String()
 		fmt.Println("Img Prompt out is: ", newImgPrompt)
 		post.Image = generateImage(newImgPrompt)
 	} else if post.Error == "" && post.DownloadImg && post.ImgUrl != "" {
 		response, err := http.Get(post.ImgUrl)
-		if err != nil {
-			post.Error = "Error downloading image: " + err.Error()
-		}
+		handleError(err)
 		defer func() {
 			response.Body.Close()
 		}()
@@ -259,18 +278,14 @@ func writeArticle(post Post) Post {
 			post.Error = "Bad response code downloading image: " + strconv.Itoa(response.StatusCode)
 		}
 		imgBytes, err := io.ReadAll(response.Body)
-		if err != nil {
-			post.Error = "Error reading image bytes: " + err.Error()
-		}
+		handleError(err)
 		post.Image = imgBytes
 	} else if post.Error == "" && post.UnsplashImg && post.UnsplashSearch != "" {
 		imgBytes := unsplash.GetImageBySearch(post.UnsplashSearch)
 		post.Image = imgBytes
 	} else if post.Error == "" && post.UnsplashImg && post.UnsplashSearch == "" {
 		imgSearchResp, err := openai.GenerateTitle(false, title, viper.GetString("config.prompt.imgsearch-prompt"), viper.GetString("config.prompt.system-prompt"))
-		if err != nil {
-			post.Error = "Error generating imgSearch from OpenAI API: " + err.Error()
-		}
+		handleError(err)
 		fmt.Println("Img Search is: ", imgSearchResp)
 		post.UnsplashSearch = imgSearchResp
 		imgBytes := unsplash.GetImageBySearch(imgSearchResp)
@@ -306,9 +321,7 @@ func postToWordpress(post Post) *wordpress.Post {
 			Data:        post.Image,
 		}
 		newMedia, resp, _, err := client.Media().Create(media)
-		if err != nil {
-			fmt.Println("Should not return error:" + err.Error())
-		}
+		handleError(err)
 		if resp.StatusCode != http.StatusCreated {
 			fmt.Println("Expected 201 Created, got" + resp.Status)
 		}
@@ -318,10 +331,75 @@ func postToWordpress(post Post) *wordpress.Post {
 	}
 
 	newPost, res, _, err := client.Posts().Create(newPost)
-	if err != nil {
-		fmt.Println("Error posting to WordPress:" + err.Error())
-	}
+	handleError(err)
 	fmt.Println(res)
 	//fmt.Printf("%+v\n", post)
 	return newPost
+}
+
+func generateIdeas(ideaCount string, builtConcept string, useGpt4 bool, sid int, ideaConcept string) {
+	prompt := Prompt{
+		IdeaCount:   ideaCount,
+		IdeaConcept: builtConcept,
+	}
+	ideaTmpl := template.Must(template.New("idea-prompt").Parse(viper.GetString("config.prompt.idea-prompt")))
+	ideaPrompt := new(bytes.Buffer)
+	err := ideaTmpl.Execute(ideaPrompt, prompt)
+	handleError(err)
+	fmt.Println("Prompt is: ", ideaPrompt.String())
+	ideaResp, err := openai.GenerateArticle(useGpt4, ideaPrompt.String(), viper.GetString("config.prompt.system-prompt"))
+	handleError(err)
+	ideaResp = strings.ReplaceAll(ideaResp, "\n", "")
+	fmt.Println("Idea Brainstorm Results: " + ideaResp)
+	ideaList := strings.Split(ideaResp, "|")
+	for index, value := range ideaList {
+		fmt.Printf("Index: %d, Value: %s\n", index, value)
+		if strings.TrimSpace(value) != "" {
+			idea := models.Idea{
+				IdeaText:    strings.TrimSpace(value),
+				Status:      "NEW",
+				IdeaConcept: ideaConcept,
+				SeriesId:    sid,
+			}
+			_, err = models.AddIdea(idea)
+		}
+	}
+}
+
+func fullBrainstorm(ideaCount string, useGpt4 bool) {
+	conceptList := ""
+	builtTopic := ""
+	concepts, _ := models.GetIdeaConcepts()
+	series, _ := models.GetSeries()
+	for _, concept := range concepts {
+		conceptList = conceptList + ", " + concept
+	}
+	for _, s := range series {
+		conceptList = conceptList + ", " + s.SeriesPrompt
+	}
+	builtTopic = builtTopic + " Previous topics used include: " + conceptList + "."
+	ideaTmpl := template.Must(template.New("topic-prompt").Parse(viper.GetString("config.prompt.topic-prompt")))
+	ideaPrompt := new(bytes.Buffer)
+	prompt := Prompt{
+		IdeaCount:   ideaCount,
+		IdeaConcept: builtTopic,
+	}
+	err := ideaTmpl.Execute(ideaPrompt, prompt)
+	handleError(err)
+	fmt.Println("Topic Prompt is: ", ideaPrompt.String())
+	ideaResp, err := openai.GenerateArticle(useGpt4, ideaPrompt.String(), viper.GetString("config.prompt.system-prompt"))
+	handleError(err)
+	ideaResp = strings.ReplaceAll(ideaResp, "\n", "")
+	fmt.Println("Idea Brainstorm Results: " + ideaResp)
+	ideaList := strings.Split(ideaResp, "|")
+	for _, value := range ideaList {
+		builtConcept := "The topic for the ideas is: \"" + value + "\"."
+		generateIdeas(ideaCount, builtConcept, useGpt4, 0, value)
+	}
+}
+
+func handleError(err error) {
+	if err != nil {
+		fmt.Println("Error: ", err.Error())
+	}
 }

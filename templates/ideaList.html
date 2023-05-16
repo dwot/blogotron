@@ -87,7 +87,7 @@
                 <tr>
                     <th scope="row">{{ .Id }}</th>
                     <td>{{ .IdeaText }}</td>
-                    <td>{{ .IdeaConcept }}</td>
+                    <td>{{ .IdeaConcept }}  {{if .IdeaConcept }}<button class="btn btn-secondary" onclick="copyToClipboard('{{ .IdeaConcept }}', this)">Copy</button> {{end}}</td>
                     <td>{{ .Status }}</td>
                     <td><a href="/write?ideaId={{ .Id }}">Write</a></td>
                     <td><a href="/idea?ideaId={{ .Id }}">Edit</a></td>
@@ -138,6 +138,19 @@
     });
     function aiBulkAdd() {
         window.location.href = "/aiIdea";
+    }
+
+    function copyToClipboard(text, button) {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                button.textContent = "Copied";
+                setTimeout(function() {
+                    button.textContent = "Copy";
+                }, 5000);
+            })
+            .catch((error) => {
+                console.error("Unable to copy text:", error);
+            });
     }
 </script>
 
