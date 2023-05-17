@@ -176,6 +176,25 @@ func main() {
 
 func generateImage(p string) []byte {
 	var imgBytes []byte
+	imgWidth := os.Getenv("IMG_WIDTH")
+	imgHeight := os.Getenv("IMG_HEIGHT")
+	imgSampler := os.Getenv("IMG_SAMPLER")
+	imgNegativePrompts := os.Getenv("IMG_NEGATIVE_PROMPTS")
+	imgSteps := os.Getenv("IMG_STEPS")
+
+	iWidth, err := strconv.Atoi(imgWidth)
+	if err != nil {
+		iWidth = 512
+	}
+	iHeight, err := strconv.Atoi(imgHeight)
+	if err != nil {
+		iHeight = 512
+	}
+	iSteps, err := strconv.Atoi(imgSteps)
+	if err != nil {
+		iSteps = 30
+	}
+
 	if p != "" {
 		if os.Getenv("IMG_MODE") == "openai" {
 			imgBytes = openai.GenerateImg(p)
@@ -183,16 +202,16 @@ func generateImage(p string) []byte {
 			ctx := context.Background()
 			images, err := stablediffusion.Generate(ctx, stablediffusion.SimpleImageRequest{
 				Prompt:                            p,
-				NegativePrompt:                    "watermark,border,blurry,duplicate",
+				NegativePrompt:                    imgNegativePrompts,
 				Styles:                            nil,
 				Seed:                              -1,
-				SamplerName:                       "DPM++ 2M",
+				SamplerName:                       imgSampler,
 				BatchSize:                         1,
 				NIter:                             1,
-				Steps:                             30,
+				Steps:                             iSteps,
 				CfgScale:                          7,
-				Width:                             512,
-				Height:                            512,
+				Width:                             iWidth,
+				Height:                            iHeight,
 				SNoise:                            0,
 				OverrideSettings:                  struct{}{},
 				OverrideSettingsRestoreAfterwards: false,
