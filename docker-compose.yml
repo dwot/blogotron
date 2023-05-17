@@ -1,0 +1,44 @@
+services:
+  mariadb:
+    image: lscr.io/linuxserver/mariadb:latest
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - MYSQL_ROOT_PASSWORD=replacewithsecurerootpw!
+      - MYSQL_DATABASE=wordpress
+      - MYSQL_USER=wordpress
+      - MYSQL_PASSWORD=replacewithsecurepw!
+    volumes:
+      - db_data:/config
+    ports:
+      - 3306:3306
+    restart: unless-stopped
+  wordpress:
+    image: wordpress:latest
+    volumes:
+      - wp_data:/var/www/html
+    ports:
+      - 8088:80
+    restart: unless-stopped
+    environment:
+      - WORDPRESS_DB_HOST=db
+      - WORDPRESS_DB_USER=wordpress
+      - WORDPRESS_DB_PASSWORD=replacewithsecurepw!
+      - WORDPRESS_DB_NAME=wordpress
+  redis:
+    image: redis:latest
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+  blogotron:
+    image: docker.io/library/blogotron:latest
+    volumes:
+      - /app/config.yml
+      - /app/blogotron.db
+      - /app/.env
+volumes:
+  db_data:
+  wp_data:
+  redis_data:
+
