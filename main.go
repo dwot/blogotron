@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-co-op/gocron"
@@ -141,7 +142,10 @@ func main() {
 				UnsplashSearch: unsplashSearch,
 			}
 
-			post = writeArticle(post)
+			err, post = writeArticle(post)
+			if err != nil {
+				fmt.Println(err)
+			}
 		})
 	}
 
@@ -226,7 +230,7 @@ func generateImage(p string) []byte {
 	return imgBytes
 }
 
-func writeArticle(post Post) Post {
+func writeArticle(post Post) (error, Post) {
 	newImgPrompt := ""
 	article := ""
 	title := ""
@@ -235,18 +239,26 @@ func writeArticle(post Post) Post {
 			kwTmpl := template.Must(template.New("keyword-prompt").Parse(viper.GetString("config.prompt.keyword-prompt")))
 			keywordPrompt := new(bytes.Buffer)
 			err := kwTmpl.Execute(keywordPrompt, post)
-			handleError(err)
+			if err != nil {
+				return err, post
+			}
 			keywordResp, err := openai.GenerateArticle(post.UseGpt4, keywordPrompt.String(), viper.GetString("config.prompt.system-prompt"))
-			handleError(err)
+			if err != nil {
+				return err, post
+			}
 			post.Keyword = keywordResp
 		}
 		wpTmpl := template.Must(template.New("web-prompt").Parse(viper.GetString("config.prompt.web-prompt")))
 		webPrompt := new(bytes.Buffer)
 		err := wpTmpl.Execute(webPrompt, post)
-		handleError(err)
+		if err != nil {
+			return err, post
+		}
 		fmt.Println("Prompt is: ", webPrompt.String())
 		articleResp, err := openai.GenerateArticle(post.UseGpt4, webPrompt.String(), viper.GetString("config.prompt.system-prompt"))
-		handleError(err)
+		if err != nil {
+			return err, post
+		}
 		article = articleResp
 		//Attempt to parse out title from h1 tag
 		if strings.Contains(article, "<h1>") && strings.Contains(article, "</h1>") && strings.HasPrefix(article, "<h1>") {
@@ -266,7 +278,9 @@ func writeArticle(post Post) Post {
 		if title == "" {
 			if !post.ConceptAsTitle {
 				titleResp, err := openai.GenerateTitle(false, article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
-				handleError(err)
+				if err != nil {
+					return err, post
+				}
 				title = titleResp
 			} else {
 				title = post.Prompt
@@ -278,7 +292,9 @@ func writeArticle(post Post) Post {
 			descPrompt := new(bytes.Buffer)
 			err := descTmpl.Execute(descPrompt, post)
 			descResp, err := openai.GenerateTitle(false, article, descPrompt.String(), viper.GetString("config.prompt.system-prompt"))
-			handleError(err)
+			if err != nil {
+				return err, post
+			}
 			post.Description = descResp
 		}
 		if post.IncludeYt && post.YtUrl != "" {
@@ -296,7 +312,9 @@ func writeArticle(post Post) Post {
 			imgGenPrompt := new(bytes.Buffer)
 			err := igTmpl.Execute(imgGenPrompt, post)
 			imgGenResp, err := openai.GenerateTitle(false, title, imgGenPrompt.String(), viper.GetString("config.prompt.system-prompt"))
-			handleError(err)
+			if err != nil {
+				return err, post
+			}
 			fmt.Println("Img Gen is: ", imgGenResp)
 			imgGenResp = strings.Replace(imgGenResp, "\"", "", 1)
 			imgGenResp = strings.Replace(imgGenResp, "Create an image of ", "", 1)
@@ -307,13 +325,17 @@ func writeArticle(post Post) Post {
 		imgTmpl := template.Must(template.New("img-prompt").Parse(viper.GetString("config.prompt.img-prompt")))
 		imgBuiltPrompt := new(bytes.Buffer)
 		err := imgTmpl.Execute(imgBuiltPrompt, post)
-		handleError(err)
+		if err != nil {
+			return err, post
+		}
 		newImgPrompt = imgBuiltPrompt.String()
 		fmt.Println("Img Prompt out is: ", newImgPrompt)
 		post.Image = generateImage(newImgPrompt)
 	} else if post.Error == "" && post.DownloadImg && post.ImgUrl != "" {
 		response, err := http.Get(post.ImgUrl)
-		handleError(err)
+		if err != nil {
+			return err, post
+		}
 		defer func() {
 			response.Body.Close()
 		}()
@@ -321,23 +343,32 @@ func writeArticle(post Post) Post {
 			post.Error = "Bad response code downloading image: " + strconv.Itoa(response.StatusCode)
 		}
 		imgBytes, err := io.ReadAll(response.Body)
-		handleError(err)
+		if err != nil {
+			return err, post
+		}
 		post.Image = imgBytes
 	} else if post.Error == "" && post.UnsplashImg && post.UnsplashSearch != "" {
 		imgBytes := unsplash.GetImageBySearch(post.UnsplashSearch)
 		post.Image = imgBytes
 	} else if post.Error == "" && post.UnsplashImg && post.UnsplashSearch == "" {
 		imgSearchResp, err := openai.GenerateTitle(false, title, viper.GetString("config.prompt.imgsearch-prompt"), viper.GetString("config.prompt.system-prompt"))
-		handleError(err)
+		if err != nil {
+			return err, post
+		}
 		fmt.Println("Img Search is: ", imgSearchResp)
 		post.UnsplashSearch = imgSearchResp
 		imgBytes := unsplash.GetImageBySearch(imgSearchResp)
 		post.Image = imgBytes
 	}
 	post.ImageB64 = base64.StdEncoding.EncodeToString(post.Image)
-	postToWordpress(post)
-	models.SetIdeaWritten(post.IdeaId)
-	return post
+	err := postToWordpress(post)
+	if err != nil {
+		fmt.Println("Error posting to Wordpress: ", err)
+		return err, post
+	} else {
+		models.SetIdeaWritten(post.IdeaId)
+	}
+	return nil, post
 }
 
 func generateIdeas(ideaCount string, builtConcept string, useGpt4 bool, sid int, ideaConcept string) {
@@ -401,10 +432,12 @@ func fullBrainstorm(ideaCount string, useGpt4 bool) {
 	}
 }
 
-func doWordpressPost(endPoint string, postData map[string]interface{}) {
+func doWordpressPost(endPoint string, postData map[string]interface{}) error {
 	// Convert the post data to JSON
 	jsonData, err := json.Marshal(postData)
-	handleError(err)
+	if err != nil {
+		return err
+	}
 	fmt.Println(string(jsonData))
 
 	// Create an HTTP client
@@ -420,7 +453,9 @@ func doWordpressPost(endPoint string, postData map[string]interface{}) {
 
 	// Create a request with the JSON data
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonData))
-	handleError(err)
+	if err != nil {
+		return err
+	}
 
 	// Calculate the content length
 	contentLength := strconv.Itoa(len(jsonData))
@@ -446,14 +481,17 @@ func doWordpressPost(endPoint string, postData map[string]interface{}) {
 
 	// Send the request
 	res, err := client.Do(req)
-	handleError(err)
+	if err != nil {
+		return err
+	}
 	defer res.Body.Close()
 
 	// Check the response status code
 	if res.StatusCode != http.StatusCreated {
 		fmt.Println("Post creation failed. Status code:", res.StatusCode)
-		return
+		return errors.New("Post creation failed. Status code:" + strconv.Itoa(res.StatusCode))
 	}
+	return nil
 }
 
 type MediaResponse struct {
@@ -560,7 +598,7 @@ func postImageToWordpress(imgBytes []byte, description string) int {
 	return mediaID
 }
 
-func postToWordpress(post Post) {
+func postToWordpress(post Post) error {
 	postData := map[string]interface{}{}
 	if len(post.Image) > 0 {
 		fmt.Println("Processing Image Upload")
@@ -581,8 +619,13 @@ func postToWordpress(post Post) {
 			"excerpt": post.Description,
 		}
 	}
-	doWordpressPost("/wp-json/wp/v2/posts", postData)
+	err := doWordpressPost("/wp-json/wp/v2/posts", postData)
+	if err != nil {
+		fmt.Println("Error creating post:", err)
+		return err
+	}
 	fmt.Println("Post created successfully!")
+	return nil
 }
 
 func handleError(err error) {

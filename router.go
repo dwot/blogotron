@@ -415,9 +415,12 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		UnsplashSearch: unsplashSearch,
 	}
 
-	post = writeArticle(post)
+	err, post := writeArticle(post)
+	if err != nil {
+		post.Error = err.Error()
+	}
 	buf := &bytes.Buffer{}
-	err := resultsTpl.Execute(buf, post)
+	err = resultsTpl.Execute(buf, post)
 	handleError(err)
 	_, err = buf.WriteTo(w)
 	handleError(err)
@@ -437,7 +440,6 @@ func testHandler(w http.ResponseWriter, r *http.Request) {
 		UnsplashImg:    false,
 		IdeaId:         "",
 	}
-	postToWordpress(post)
 	buf := &bytes.Buffer{}
 	err := resultsTpl.Execute(buf, post)
 	handleError(err)

@@ -16,11 +16,6 @@ func GenerateArticle(useGpt4 bool, prompt string, systemPrompt string) (article 
 	return
 }
 
-func GenerateIdeas(useGpt4 bool, prompt string, systemPrompt string) (results string, err error) {
-	results, err = generate(useGpt4, prompt, systemPrompt)
-	return
-}
-
 func GenerateTitle(useGpt4 bool, article string, prompt string, systemPrompt string) (title string, err error) {
 	title, err = generate(useGpt4, prompt, systemPrompt, article)
 	return
