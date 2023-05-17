@@ -32,6 +32,7 @@ type Post struct {
 	UnsplashImg    bool   `json:"unsplash-img"`
 	IdeaId         string `json:"idea-id"`
 	UnsplashSearch string `json:"unsplash-search"`
+	Keyword        string `json:"keyword"`
 }
 
 type PageData struct {

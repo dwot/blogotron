@@ -212,6 +212,15 @@ func writeArticle(post Post) Post {
 	article := ""
 	title := ""
 	if post.Prompt != "" {
+		if post.Keyword == "" {
+			kwTmpl := template.Must(template.New("keyword-prompt").Parse(viper.GetString("config.prompt.keyword-prompt")))
+			keywordPrompt := new(bytes.Buffer)
+			err := kwTmpl.Execute(keywordPrompt, post)
+			handleError(err)
+			keywordResp, err := openai.GenerateArticle(post.UseGpt4, keywordPrompt.String(), viper.GetString("config.prompt.system-prompt"))
+			handleError(err)
+			post.Keyword = keywordResp
+		}
 		wpTmpl := template.Must(template.New("web-prompt").Parse(viper.GetString("config.prompt.web-prompt")))
 		webPrompt := new(bytes.Buffer)
 		err := wpTmpl.Execute(webPrompt, post)
@@ -244,6 +253,12 @@ func writeArticle(post Post) Post {
 				title = post.Prompt
 			}
 		}
+		//Generate description
+		if post.Description == "" {
+			descResp, err := openai.GenerateTitle(false, article, viper.GetString("config.prompt.description-prompt"), viper.GetString("config.prompt.system-prompt"))
+			handleError(err)
+			post.Description = descResp
+		}
 		if post.IncludeYt && post.YtUrl != "" {
 			article = article + "\n<p>[embed]" + post.YtUrl + "[/embed]</p>"
 		}
@@ -255,7 +270,10 @@ func writeArticle(post Post) Post {
 
 	if post.Error == "" && post.GenerateImg {
 		if post.ImagePrompt == "" {
-			imgGenResp, err := openai.GenerateTitle(false, title, viper.GetString("config.prompt.imggen-prompt"), viper.GetString("config.prompt.system-prompt"))
+			igTmpl := template.Must(template.New("imggen-prompt").Parse(viper.GetString("config.prompt.imggen-prompt")))
+			imgGenPrompt := new(bytes.Buffer)
+			err := igTmpl.Execute(imgGenPrompt, post)
+			imgGenResp, err := openai.GenerateTitle(false, title, imgGenPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 			handleError(err)
 			fmt.Println("Img Gen is: ", imgGenResp)
 			imgGenResp = strings.Replace(imgGenResp, "\"", "", 1)
@@ -420,7 +438,7 @@ type MediaResponse struct {
 	ID int `json:"id"`
 }
 
-func postImageToWordpress(imgBytes []byte) int {
+func postImageToWordpress(imgBytes []byte, description string) int {
 	// Create a new multipart writer
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -438,6 +456,10 @@ func postImageToWordpress(imgBytes []byte) int {
 		fmt.Println("Error copying image bytes:", err)
 		return 0
 	}
+
+	// Add the alt text as a form field
+	err = writer.WriteField("alt_text", description)
+	handleError(err)
 
 	// Close the multipart writer
 	err = writer.Close()
@@ -520,12 +542,13 @@ func postToWordpress(post Post) {
 	postData := map[string]interface{}{}
 	if len(post.Image) > 0 {
 		fmt.Println("Processing Image Upload")
-		mediaID := postImageToWordpress(post.Image)
+		mediaID := postImageToWordpress(post.Image, post.ImagePrompt)
 		postData = map[string]interface{}{
 			"title":          post.Title,
 			"content":        post.Content,
 			"status":         post.PublishStatus,
 			"featured_media": mediaID,
+			"excerpt":        post.Description,
 		}
 	} else {
 		// Define the post data
@@ -533,6 +556,7 @@ func postToWordpress(post Post) {
 			"title":   post.Title,
 			"content": post.Content,
 			"status":  post.PublishStatus,
+			"excerpt": post.Description,
 		}
 	}
 	doWordpressPost("/wp-json/wp/v2/posts", postData)

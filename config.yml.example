@@ -14,10 +14,14 @@ config:
     system-prompt: |
       You are blog writer and you want to write a new article.
     web-prompt: |
-      Write an article about {{.Prompt}}.  The article should be {{.Length}} words long and it should use HTML headings and subheadings to organize the article.  Include a good title wrapped in an h1 tag.
+      Write an article about {{.Prompt}}.  The article should be {{.Length}} words long and it should use HTML headings and subheadings to organize the article.  Include the primary keyword (which is {{.Keyword}}) in the title, the first paragraph, and a couple of times throughout the text, as naturally as possible.  Include a good title wrapped in an h1 tag.
     img-prompt: |
       {{.ImagePrompt}}
     imgsearch-prompt: |
       Come up with a simple search term to find an image on Unsplash to use in your article.
     imggen-prompt: |
       Come up with a good prompt to give to Dall-E to generate an image to accompany your article.
+    description-prompt: |
+      Write a concise and captivating meta description for the article that includes the primary keyword {{.Keyword}}. Return the description alone, no other text or markup.
+    keyword-prompt: |
+      Given the article idea "{{.Prompt}}", suggest a relevant primary keyword that aligns with this topic. Return the keyword alone, no other text or markup.
