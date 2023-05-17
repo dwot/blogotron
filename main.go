@@ -255,7 +255,10 @@ func writeArticle(post Post) Post {
 		}
 		//Generate description
 		if post.Description == "" {
-			descResp, err := openai.GenerateTitle(false, article, viper.GetString("config.prompt.description-prompt"), viper.GetString("config.prompt.system-prompt"))
+			descTmpl := template.Must(template.New("description-prompt").Parse(viper.GetString("config.prompt.description-prompt")))
+			descPrompt := new(bytes.Buffer)
+			err := descTmpl.Execute(descPrompt, post)
+			descResp, err := openai.GenerateTitle(false, article, descPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 			handleError(err)
 			post.Description = descResp
 		}
