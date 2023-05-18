@@ -2,10 +2,10 @@ package models
 
 import (
 	"database/sql"
-	"fmt"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source"
+	"golang/util"
 	"strconv"
 
 	_ "github.com/golang-migrate/migrate/v4/source/iofs"
@@ -36,12 +36,13 @@ func MigrateDatabase(fs source.Driver) error {
 		return err
 	}
 	mv, _, _ := m.Version()
-	fmt.Println("Current DB Version:" + strconv.FormatUint(uint64(mv), 10))
+	util.Logger.Info().Msg("Current DB Version:" + strconv.FormatUint(uint64(mv), 10))
 	curVer := int(mv)
 	if curVer < targetVersion {
 		err = m.Up()
+		return err
 	} else {
-		fmt.Println("At expected version: " + strconv.Itoa(targetVersion) + " skipping migration.")
+		util.Logger.Info().Msg("At expected version: " + strconv.Itoa(targetVersion) + " skipping migration.")
 	}
 	return err
 }

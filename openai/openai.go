@@ -3,7 +3,8 @@ package openai
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
+	"errors"
+	"golang/util"
 	"os"
 )
 
@@ -18,6 +19,7 @@ func GenerateArticle(useGpt4 bool, prompt string, systemPrompt string) (article 
 
 func GenerateTitle(useGpt4 bool, article string, prompt string, systemPrompt string) (title string, err error) {
 	title, err = generate(useGpt4, prompt, systemPrompt, article)
+	util.Logger.Info().Msg("Generated title: " + title)
 	return
 }
 
@@ -31,13 +33,15 @@ func GenerateImg(p string) []byte {
 		N:              1,
 	}
 	respBase64, err := client.CreateImage(ctx, reqBase64)
+	util.HandleError(err, "Error generating image")
 	if err != nil {
-		fmt.Printf("Image creation error: %v\n", err)
+		return nil
 	}
 
 	imgBytes, err := base64.StdEncoding.DecodeString(respBase64.Data[0].B64JSON)
+	util.HandleError(err, "Error decoding image")
 	if err != nil {
-		fmt.Printf("Base64 decode error: %v\n", err)
+		return nil
 	}
 
 	return imgBytes
@@ -70,12 +74,13 @@ func generate(useGpt4 bool, prompt string, systemPrompt string, article ...strin
 	})
 
 	if err != nil {
-		fmt.Printf("ChatCompletion error: %v\n", err)
+		util.HandleError(err, "Error generating article")
 		return "", err
 	}
 
 	if resp.Choices[0].FinishReason != "stop" {
-		fmt.Printf("ChatCompletion error (FinishReason): %v\n", resp.Choices[0].FinishReason)
+		err = errors.New("ChatCompletion error (FinishReason): " + resp.Choices[0].FinishReason)
+		util.HandleError(err, "Error generating article")
 		return "", err
 	}
 

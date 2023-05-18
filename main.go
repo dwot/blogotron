@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-co-op/gocron"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
@@ -19,6 +18,8 @@ import (
 	"golang/openai"
 	"golang/stablediffusion"
 	"golang/unsplash"
+	"golang/util"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -28,26 +29,27 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"html/template"
 )
 
 //go:embed sql/migrations/*.sql
 var MigrationSrc embed.FS
 
 func main() {
+	util.Init()
+	util.Logger.Info().Msg("Starting Blogotron")
 	err := godotenv.Load()
-	handleError(err)
-	config.ParseConfig()
+	util.HandleErrorAndTerminate(err, "Could not load .env file")
+	err = config.ParseConfig()
+	util.HandleErrorAndTerminate(err, "Could not load config.yml file")
 
 	//DB
 	dbName := os.Getenv("BLOGOTRON_DB_NAME")
 	err = models.ConnectDatabase(dbName)
-	handleError(err)
+	util.HandleErrorAndTerminate(err, "Could not connect to database file "+dbName)
 	migSrc, err := iofs.New(MigrationSrc, "sql/migrations")
-	handleError(err)
+	util.HandleErrorAndTerminate(err, "Could not load migrations")
 	err = models.MigrateDatabase(migSrc)
-	handleError(err)
+	util.HandleErrorAndTerminate(err, "Could not migrate database")
 
 	//API
 	apiPort := os.Getenv("BLOGOTRON_API_PORT")
@@ -100,82 +102,99 @@ func main() {
 		iThreshold = 0
 	}
 	if iThreshold > 0 {
+		util.Logger.Info().Msg("Auto Idea Generation Enabled - Low Idea Threshold Set to " + strconv.Itoa(iThreshold) + " ideas")
 		cronSrv.Every("1h").Do(func() {
+			util.Logger.Info().Msg("Checking Idea Levels")
 			//Check count of total open ideas
 			ideaCount := models.GetOpenIdeaCount()
-			fmt.Println("Idea Count: " + strconv.Itoa(ideaCount) + " Threshold: " + strconv.Itoa(iThreshold))
+			util.Logger.Info().Msg("Idea Count: " + strconv.Itoa(ideaCount) + " Threshold: " + strconv.Itoa(iThreshold))
 			if ideaCount < iThreshold {
+				util.Logger.Info().Msg("Idea Count is below threshold - Generating 10 new concepts and 10 new ideas for each concept")
 				fullBrainstorm("10", false)
 			}
 		})
+	} else {
+		util.Logger.Info().Msg("Auto Idea Generation Disabled")
 	}
 	if autoPost == "true" {
+		util.Logger.Info().Msg("Auto Post Enabled - Interval Set to " + autoPostInterval)
 		cronSrv.Every(autoPostInterval).Do(func() {
+			util.Logger.Info().Msg("Auto Post Triggered")
 			//Get a Random Idea
 			idea := models.GetRandomIdea()
-			//Create a new post from the idea
-			iLen, convErr := strconv.Atoi(autoPostLen)
-			if convErr != nil {
-				iLen = 750
-			}
-			publishStatus := autoPostState
-			unsplashSearch := ""
-			unsplashImg := false
-			generateImg := false
-			if autoPostImgEngine == "unsplash" {
-				unsplashImg = true
-			} else if autoPostImgEngine == "generate" {
-				generateImg = true
-			}
+			if idea.Id == 0 {
+				util.HandleError(err, "Could not get random idea")
+			} else {
+				util.Logger.Info().Msg("Random Idea: " + idea.IdeaText)
+				//Create a new post from the idea
+				iLen, convErr := strconv.Atoi(autoPostLen)
+				if convErr != nil {
+					iLen = 750
+				}
+				publishStatus := autoPostState
+				unsplashSearch := ""
+				unsplashImg := false
+				generateImg := false
+				if autoPostImgEngine == "unsplash" {
+					unsplashImg = true
+				} else if autoPostImgEngine == "generate" {
+					generateImg = true
+				}
 
-			post := Post{
-				Prompt:         idea.IdeaText,
-				Length:         iLen,
-				PublishStatus:  publishStatus,
-				UseGpt4:        false,
-				ConceptAsTitle: false,
-				IncludeYt:      false,
-				GenerateImg:    generateImg,
-				DownloadImg:    false,
-				UnsplashImg:    unsplashImg,
-				IdeaId:         strconv.Itoa(idea.Id),
-				UnsplashSearch: unsplashSearch,
-			}
+				post := Post{
+					Prompt:         idea.IdeaText,
+					Length:         iLen,
+					PublishStatus:  publishStatus,
+					UseGpt4:        false,
+					ConceptAsTitle: false,
+					IncludeYt:      false,
+					GenerateImg:    generateImg,
+					DownloadImg:    false,
+					UnsplashImg:    unsplashImg,
+					IdeaId:         strconv.Itoa(idea.Id),
+					UnsplashSearch: unsplashSearch,
+				}
 
-			err, post = writeArticle(post)
-			if err != nil {
-				fmt.Println(err)
+				err, post = writeArticle(post)
+				util.HandleError(err, "Could not write article")
 			}
 		})
 	}
 
 	//Thread Mgmt
+	util.Logger.Info().Msg("Starting Thread Management")
 	wg := new(sync.WaitGroup)
 	wg.Add(3)
-	fmt.Println("Starting Gin Server")
+	util.Logger.Info().Msg("Starting Gin Server")
 	go func() {
 		apiGin.Run(":" + apiPort)
 		wg.Done()
 	}()
-	fmt.Println("Started Gin Server")
+	util.Logger.Info().Msg("Started Gin Server on Port " + apiPort + "")
 
-	fmt.Println("Starting Web Server")
+	util.Logger.Info().Msg("Starting Web Server")
 	go func() {
 		err = http.ListenAndServe(":"+webPort, mux)
-		handleError(err)
+		util.HandleError(err, "Error starting web server")
 		wg.Done()
 	}()
-	fmt.Println("Started Web Server")
+	util.Logger.Info().Msg("Started Web Server on Port " + webPort + "")
 
-	fmt.Println("Starting Cron Server")
+	util.Logger.Info().Msg("Starting Cron Server")
 	go func() {
 		//Start cron
 		cronSrv.StartBlocking()
 		wg.Done()
 	}()
-	fmt.Println("Started Cron Server")
+	util.Logger.Info().Msg("Started Cron Server")
+	util.Logger.Info().Msg("Startup Completed")
 	wg.Wait()
+}
 
+type SimilarityResponse struct {
+	Title         string               `json:"title"`
+	Score         string               `json:"score"`
+	SimilarTitles []SimilarityResponse `json:"similar_titles"`
 }
 
 func generateImage(p string) []byte {
@@ -221,10 +240,8 @@ func generateImage(p string) []byte {
 				OverrideSettingsRestoreAfterwards: false,
 				SaveImages:                        true,
 			})
-			handleError(err)
+			util.HandleError(err, "Error generating image")
 			imgBytes = images.Images[0]
-		} else {
-			fmt.Println("image generation disabled")
 		}
 	}
 	return imgBytes
@@ -254,7 +271,6 @@ func writeArticle(post Post) (error, Post) {
 		if err != nil {
 			return err, post
 		}
-		fmt.Println("Prompt is: ", webPrompt.String())
 		articleResp, err := openai.GenerateArticle(post.UseGpt4, webPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 		if err != nil {
 			return err, post
@@ -262,15 +278,11 @@ func writeArticle(post Post) (error, Post) {
 		article = articleResp
 		//Attempt to parse out title from h1 tag
 		if strings.Contains(article, "<h1>") && strings.Contains(article, "</h1>") && strings.HasPrefix(article, "<h1>") {
-			fmt.Println("Detected Title")
 			tempTitle := strings.Split(strings.Split(article, "<h1>")[1], "</h1>")[0]
-			if tempTitle == "Introduction" {
-				fmt.Println("Title is Introduction, skipping")
-			} else {
+			if tempTitle != "Introduction" {
 				title = tempTitle
 				//Remove title from article
 				article = strings.Replace(article, "<h1>"+title+"</h1>", "", 1)
-				fmt.Println("Removed Title: " + title)
 				//Remove any leading newlines from article
 				article = strings.TrimPrefix(article, "\n")
 			}
@@ -315,13 +327,12 @@ func writeArticle(post Post) (error, Post) {
 			if err != nil {
 				return err, post
 			}
-			fmt.Println("Img Gen is: ", imgGenResp)
 			imgGenResp = strings.Replace(imgGenResp, "\"", "", 1)
 			imgGenResp = strings.Replace(imgGenResp, "Create an image of ", "", 1)
 			imgGenResp = strings.Replace(imgGenResp, "Can you create an image of ", "", 1)
 			post.ImagePrompt = imgGenResp
 		}
-		fmt.Println("Img Prompt in is: ", post.ImagePrompt)
+		util.Logger.Info().Msg("Img Prompt in is: " + post.ImagePrompt)
 		imgTmpl := template.Must(template.New("img-prompt").Parse(viper.GetString("config.prompt.img-prompt")))
 		imgBuiltPrompt := new(bytes.Buffer)
 		err := imgTmpl.Execute(imgBuiltPrompt, post)
@@ -329,7 +340,6 @@ func writeArticle(post Post) (error, Post) {
 			return err, post
 		}
 		newImgPrompt = imgBuiltPrompt.String()
-		fmt.Println("Img Prompt out is: ", newImgPrompt)
 		post.Image = generateImage(newImgPrompt)
 	} else if post.Error == "" && post.DownloadImg && post.ImgUrl != "" {
 		response, err := http.Get(post.ImgUrl)
@@ -355,7 +365,6 @@ func writeArticle(post Post) (error, Post) {
 		if err != nil {
 			return err, post
 		}
-		fmt.Println("Img Search is: ", imgSearchResp)
 		post.UnsplashSearch = imgSearchResp
 		imgBytes := unsplash.GetImageBySearch(imgSearchResp)
 		post.Image = imgBytes
@@ -363,7 +372,6 @@ func writeArticle(post Post) (error, Post) {
 	post.ImageB64 = base64.StdEncoding.EncodeToString(post.Image)
 	err := postToWordpress(post)
 	if err != nil {
-		fmt.Println("Error posting to Wordpress: ", err)
 		return err, post
 	} else {
 		models.SetIdeaWritten(post.IdeaId)
@@ -379,15 +387,15 @@ func generateIdeas(ideaCount string, builtConcept string, useGpt4 bool, sid int,
 	ideaTmpl := template.Must(template.New("idea-prompt").Parse(viper.GetString("config.prompt.idea-prompt")))
 	ideaPrompt := new(bytes.Buffer)
 	err := ideaTmpl.Execute(ideaPrompt, prompt)
-	handleError(err)
-	fmt.Println("Prompt is: ", ideaPrompt.String())
+	util.HandleError(err, "Error executing idea template")
+	util.Logger.Info().Msg("Prompt is: " + ideaPrompt.String())
 	ideaResp, err := openai.GenerateArticle(useGpt4, ideaPrompt.String(), viper.GetString("config.prompt.system-prompt"))
-	handleError(err)
+	util.HandleError(err, "Error generating ideas")
 	ideaResp = strings.ReplaceAll(ideaResp, "\n", "")
-	fmt.Println("Idea Brainstorm Results: " + ideaResp)
+	util.Logger.Info().Msg("Idea Brainstorm Results: " + ideaResp)
 	ideaList := strings.Split(ideaResp, "|")
 	for index, value := range ideaList {
-		fmt.Printf("Index: %d, Value: %s\n", index, value)
+		util.Logger.Info().Msgf("Index: %d, Value: %s\n", index, value)
 		if strings.TrimSpace(value) != "" {
 			idea := models.Idea{
 				IdeaText:    strings.TrimSpace(value),
@@ -396,6 +404,7 @@ func generateIdeas(ideaCount string, builtConcept string, useGpt4 bool, sid int,
 				SeriesId:    sid,
 			}
 			_, err = models.AddIdea(idea)
+			util.HandleError(err, "Error adding idea")
 		}
 	}
 }
@@ -419,17 +428,76 @@ func fullBrainstorm(ideaCount string, useGpt4 bool) {
 		IdeaConcept: builtTopic,
 	}
 	err := ideaTmpl.Execute(ideaPrompt, prompt)
-	handleError(err)
-	fmt.Println("Topic Prompt is: ", ideaPrompt.String())
+	util.HandleError(err, "Error executing idea template")
+	util.Logger.Info().Msg("Topic Prompt is: " + ideaPrompt.String())
 	ideaResp, err := openai.GenerateArticle(useGpt4, ideaPrompt.String(), viper.GetString("config.prompt.system-prompt"))
-	handleError(err)
+	util.HandleError(err, "Error generating ideas")
 	ideaResp = strings.ReplaceAll(ideaResp, "\n", "")
-	fmt.Println("Idea Brainstorm Results: " + ideaResp)
+	util.Logger.Info().Msg("Idea Brainstorm Results: " + ideaResp)
 	ideaList := strings.Split(ideaResp, "|")
 	for _, value := range ideaList {
 		builtConcept := "The topic for the ideas is: \"" + value + "\"."
 		generateIdeas(ideaCount, builtConcept, useGpt4, 0, value)
 	}
+}
+
+func getWpTitles() ([]string, error) {
+	// Create an HTTP client
+	client := &http.Client{}
+
+	// Define the URL and request method
+	url := os.Getenv("WP_URL") + "/wp-json/wp/v2/posts?per_page=100"
+	method := "GET"
+
+	// Define the authentication credentials
+	username := os.Getenv("WP_USERNAME")
+	password := os.Getenv("WP_PASSWORD")
+
+	// Create a request
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		util.HandleError(err, "Error creating request for title list")
+		return nil, err
+	}
+
+	// Set the authentication header
+	req.SetBasicAuth(username, password)
+
+	// Send the request
+	res, err := client.Do(req)
+	if err != nil {
+		util.HandleError(err, "Error sending request for title list")
+		return nil, err
+	}
+
+	// Read the response body
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		util.HandleError(err, "Error reading response body for title list")
+		return nil, err
+	}
+
+	// Close the response body
+	res.Body.Close()
+
+	// Parse the JSON data
+	var posts []map[string]interface{}
+	err = json.Unmarshal(body, &posts)
+	if err != nil {
+		util.HandleError(err, "Error parsing JSON for title list")
+		return nil, err
+	}
+
+	// Create a slice of strings to store the titles
+	var titles []string
+
+	// Loop through the posts and add the titles to the slice
+	for _, post := range posts {
+		titles = append(titles, post["title"].(map[string]interface{})["rendered"].(string))
+	}
+
+	// Return the titles
+	return titles, nil
 }
 
 func doWordpressPost(endPoint string, postData map[string]interface{}) error {
@@ -438,7 +506,6 @@ func doWordpressPost(endPoint string, postData map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(jsonData))
 
 	// Create an HTTP client
 	client := &http.Client{}
@@ -488,7 +555,6 @@ func doWordpressPost(endPoint string, postData map[string]interface{}) error {
 
 	// Check the response status code
 	if res.StatusCode != http.StatusCreated {
-		fmt.Println("Post creation failed. Status code:", res.StatusCode)
 		return errors.New("Post creation failed. Status code:" + strconv.Itoa(res.StatusCode))
 	}
 	return nil
@@ -506,25 +572,25 @@ func postImageToWordpress(imgBytes []byte, description string) int {
 	// Create a new form file field for the image
 	part, err := writer.CreateFormFile("file", "image.jpg")
 	if err != nil {
-		fmt.Println("Error creating form file field:", err)
+		util.Logger.Error().Err(err).Msg("Error creating form file field")
 		return 0
 	}
 
 	// Copy the image bytes to the form file field
 	_, err = io.Copy(part, bytes.NewReader(imgBytes))
 	if err != nil {
-		fmt.Println("Error copying image bytes:", err)
+		util.Logger.Error().Err(err).Msg("Error copying image bytes")
 		return 0
 	}
 
 	// Add the alt text as a form field
 	err = writer.WriteField("alt_text", description)
-	handleError(err)
+	util.HandleError(err, "Error writing alt text field")
 
 	// Close the multipart writer
 	err = writer.Close()
 	if err != nil {
-		fmt.Println("Error closing multipart writer:", err)
+		util.Logger.Error().Err(err).Msg("Error closing multipart writer")
 		return 0
 	}
 	// Create an HTTP client
@@ -540,7 +606,7 @@ func postImageToWordpress(imgBytes []byte, description string) int {
 
 	// Create a request with the multipart body
 	req, err := http.NewRequest(method, url, body)
-	handleError(err)
+	util.HandleError(err, "Error creating request for image upload")
 
 	// Calculate the content length
 	contentLength := strconv.Itoa(body.Len())
@@ -566,7 +632,7 @@ func postImageToWordpress(imgBytes []byte, description string) int {
 	// Send the request
 	res, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Error sending request:", err)
+		util.Logger.Error().Err(err).Msg("Error sending request")
 		return 0
 	}
 	defer res.Body.Close()
@@ -574,14 +640,13 @@ func postImageToWordpress(imgBytes []byte, description string) int {
 	// Read the response body
 	responseBody, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		fmt.Println("Error reading response body:", err)
+		util.Logger.Error().Err(err).Msg("Error reading response body")
 		return 0
 	}
 
 	// Check the response status code
 	if res.StatusCode != http.StatusCreated {
-		fmt.Println("Image upload failed. Status code:", res.StatusCode)
-		fmt.Println("Response body:", string(responseBody))
+		util.Logger.Error().Msg("Image upload failed with status code " + strconv.Itoa(res.StatusCode) + ". Response body: " + string(responseBody) + ".")
 		return 0
 	}
 
@@ -589,19 +654,19 @@ func postImageToWordpress(imgBytes []byte, description string) int {
 	var mediaResp MediaResponse
 	err = json.Unmarshal(responseBody, &mediaResp)
 	if err != nil {
-		fmt.Println("Error parsing response body:", err)
+		util.Logger.Error().Err(err).Msg("Error parsing response body")
 		return 0
 	}
 
 	mediaID := mediaResp.ID
-	fmt.Println("Image uploaded successfully! Media ID:", mediaID)
+	util.Logger.Info().Msg("Image uploaded successfully! Media ID:" + strconv.Itoa(mediaID))
 	return mediaID
 }
 
 func postToWordpress(post Post) error {
 	postData := map[string]interface{}{}
 	if len(post.Image) > 0 {
-		fmt.Println("Processing Image Upload")
+		util.Logger.Info().Msg("Processing Image Upload")
 		mediaID := postImageToWordpress(post.Image, post.ImagePrompt)
 		postData = map[string]interface{}{
 			"title":          post.Title,
@@ -621,15 +686,9 @@ func postToWordpress(post Post) error {
 	}
 	err := doWordpressPost("/wp-json/wp/v2/posts", postData)
 	if err != nil {
-		fmt.Println("Error creating post:", err)
+		util.Logger.Error().Err(err).Msg("Error creating post")
 		return err
 	}
-	fmt.Println("Post created successfully!")
+	util.Logger.Info().Msg("Post created successfully!")
 	return nil
-}
-
-func handleError(err error) {
-	if err != nil {
-		fmt.Println("Error: ", err.Error())
-	}
 }

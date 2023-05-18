@@ -1,13 +1,44 @@
 package util
 
 import (
-	"github.com/microcosm-cc/bluemonday"
-	"regexp"
+	"os"
+
+	"github.com/rs/zerolog"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var p = bluemonday.StripTagsPolicy()
-var regex = regexp.MustCompile("\n[ \n]{2,}")
+var Logger zerolog.Logger
 
-func FormatRSSContent(content string) string {
-	return regex.ReplaceAllString(p.Sanitize(content), "\n")
+func Init() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout}
+	// Create a lumberjack logger for rotating log files
+	logFile := &lumberjack.Logger{
+		Filename:   "blogotron-application.log",
+		MaxSize:    10, // Maximum size in megabytes before log rotation
+		MaxBackups: 3,  // Maximum number of old log files to retain
+		MaxAge:     7,  // Maximum number of days to retain log files
+		Compress:   true,
+	}
+	multi := zerolog.MultiLevelWriter(consoleWriter, logFile)
+
+	// Set the output to console and file writer
+	Logger = zerolog.New(multi).With().Timestamp().Caller().Logger()
+
+	// Remember to close the log file when you're done
+	defer logFile.Close()
+}
+
+func HandleError(err error, msg string) {
+	if err != nil {
+		Logger.Error().Err(err).Msg(msg)
+	}
+}
+
+func HandleErrorAndTerminate(err error, msg string) {
+	if err != nil {
+		Logger.Error().Err(err).Msg("Error")
+		Logger.Fatal().Err(err).Msg(msg)
+		os.Exit(1)
+	}
 }

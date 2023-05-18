@@ -8,11 +8,12 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.15.2
 	github.com/hbagdi/go-unsplash v0.0.0-20230414214043-474fc02c9119
 	github.com/joho/godotenv v1.5.1
-	github.com/meitarim/go-wordpress v0.0.0-20181009110756-8a88c7030803
 	github.com/microcosm-cc/bluemonday v1.0.23
+	github.com/rs/zerolog v1.15.0
 	github.com/sashabaranov/go-openai v1.7.0
 	github.com/spf13/viper v1.15.0
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
+	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	modernc.org/sqlite v1.22.1
 )
 
@@ -21,7 +22,6 @@ require (
 	github.com/bytedance/sonic v1.8.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
@@ -44,13 +44,9 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/parnurzeal/gorequest v0.2.16 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/smartystreets/goconvey v1.8.0 // indirect
-	github.com/sogko/go-wordpress v0.0.0-20160322054548-0f4f3dc4231f // indirect
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -79,5 +75,4 @@ require (
 	modernc.org/opt v0.1.3 // indirect
 	modernc.org/strutil v1.1.3 // indirect
 	modernc.org/token v1.0.1 // indirect
-	moul.io/http2curl v1.0.0 // indirect
 )

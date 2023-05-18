@@ -1,21 +1,16 @@
 package api
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"golang/models"
+	"golang/util"
 	"net/http"
 	"strconv"
 )
 
-func checkErr(err error) {
-	if err != nil {
-		fmt.Println("ERROR: " + err.Error())
-	}
-}
 func GetIdeas(c *gin.Context) {
 	ideas, err := models.GetIdeas()
-	checkErr(err)
+	util.HandleError(err, "GetIdeas")
 
 	if ideas == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No Records Found"})
@@ -28,7 +23,7 @@ func GetIdeas(c *gin.Context) {
 func GetIdeaById(c *gin.Context) {
 	id := c.Param("id")
 	idea, err := models.GetIdeaById(id)
-	checkErr(err)
+	util.HandleError(err, "GetIdeaById")
 	// if the name is blank we can assume nothing is found
 	if idea.IdeaText == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No Records Found"})

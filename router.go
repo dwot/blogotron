@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"golang/models"
+	"golang/util"
 	"html/template"
 	"net/http"
 	"os"
@@ -81,9 +82,9 @@ func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err := indexTpl.Execute(buf, indexData)
-	handleError(err)
+	util.HandleError(err, "Error executing template")
 	_, err = buf.WriteTo(w)
-	handleError(err)
+	util.HandleError(err, "Error writing template to buffer")
 }
 
 func writeHandler(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +96,7 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 	ideaText := ""
 	if id > 0 {
 		idea, err := models.GetIdeaById(ideaId)
-		handleError(err)
+		util.HandleError(err, "Error getting idea by id")
 		ideaText = idea.IdeaText
 	}
 
@@ -112,14 +113,14 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err = writeTpl.Execute(buf, writeData)
-	handleError(err)
+	util.HandleError(err, "Error executing template")
 	_, err = buf.WriteTo(w)
-	handleError(err)
+	util.HandleError(err, "Error writing template to buffer")
 }
 
 func ideaListHandler(w http.ResponseWriter, _ *http.Request) {
 	ideas, err := models.GetOpenIdeas()
-	handleError(err)
+	util.HandleError(err, "Error getting open ideas")
 	planData := PlanData{
 		ErrorCode: "",
 		Ideas:     ideas,
@@ -127,14 +128,14 @@ func ideaListHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err = ideaListTpl.Execute(buf, planData)
-	handleError(err)
+	util.HandleError(err, "Error executing template")
 	_, err = buf.WriteTo(w)
-	handleError(err)
+	util.HandleError(err, "Error writing template to buffer")
 }
 
 func seriesListHandler(w http.ResponseWriter, _ *http.Request) {
 	series, err := models.GetSeries()
-	handleError(err)
+	util.HandleError(err, "Error getting series")
 	planData := PlanData{
 		ErrorCode: "",
 		Ideas:     nil,
@@ -142,9 +143,9 @@ func seriesListHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err = seriesListTpl.Execute(buf, planData)
-	handleError(err)
+	util.HandleError(err, "Error executing template")
 	_, err = buf.WriteTo(w)
-	handleError(err)
+	util.HandleError(err, "Error writing template to buffer")
 }
 
 func ideaHandler(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +162,7 @@ func ideaHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if id > 0 {
 		idea, err := models.GetIdeaById(ideaId)
-		handleError(err)
+		util.HandleError(err, "Error getting idea by id")
 		ideaData = IdeaData{
 			ErrorCode: "",
 			Idea:      idea,
@@ -176,9 +177,9 @@ func ideaHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err := ideaTpl.Execute(buf, ideaData)
-	handleError(err)
+	util.HandleError(err, "Error executing template")
 	_, err = buf.WriteTo(w)
-	handleError(err)
+	util.HandleError(err, "Error writing template to buffer")
 }
 
 func seriesHandler(w http.ResponseWriter, r *http.Request) {
@@ -190,9 +191,9 @@ func seriesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if id > 0 {
 		series, err := models.GetSeriesById(seriesId)
-		handleError(err)
+		util.HandleError(err, "Error getting series by id")
 		ideas, err := models.GetOpenSeriesIdeas(seriesId)
-		handleError(err)
+		util.HandleError(err, "Error getting ideas for series")
 		seriesData = SeriesData{
 			ErrorCode: "",
 			Series:    series,
@@ -208,9 +209,9 @@ func seriesHandler(w http.ResponseWriter, r *http.Request) {
 
 	buf := &bytes.Buffer{}
 	err := seriesTpl.Execute(buf, seriesData)
-	handleError(err)
+	util.HandleError(err, "Error executing template")
 	_, err = buf.WriteTo(w)
-	handleError(err)
+	util.HandleError(err, "Error writing template to buffer")
 }
 
 func aiIdeaHandler(w http.ResponseWriter, r *http.Request) {
@@ -295,7 +296,7 @@ func ideaSaveHandler(w http.ResponseWriter, r *http.Request) {
 			SeriesId: sid,
 		}
 		_, err := models.UpdateIdea(idea, id)
-		handleError(err)
+		util.HandleError(err, "Error updating idea")
 	} else {
 		//Insert New
 		idea := models.Idea{
@@ -304,7 +305,7 @@ func ideaSaveHandler(w http.ResponseWriter, r *http.Request) {
 			SeriesId: sid,
 		}
 		_, err := models.AddIdea(idea)
-		handleError(err)
+		util.HandleError(err, "Error adding idea")
 	}
 	if sid > 0 {
 		seriesHandler(w, r)
@@ -329,7 +330,7 @@ func seriesSaveHandler(w http.ResponseWriter, r *http.Request) {
 			SeriesPrompt: seriesPrompt,
 		}
 		_, err := models.UpdateSeries(series, id)
-		handleError(err)
+		util.HandleError(err, "Error updating series")
 	} else {
 		//Insert New
 		series := models.Series{
@@ -337,14 +338,14 @@ func seriesSaveHandler(w http.ResponseWriter, r *http.Request) {
 			SeriesPrompt: seriesPrompt,
 		}
 		id, err := models.AddSeriesReturningId(series)
-		handleError(err)
+		util.HandleError(err, "Error adding series")
 		seriesId = strconv.Itoa(id)
 	}
 
 	series, err := models.GetSeriesById(seriesId)
-	handleError(err)
+	util.HandleError(err, "Error getting series")
 	ideas, err := models.GetOpenSeriesIdeas(seriesId)
-	handleError(err)
+	util.HandleError(err, "Error getting ideas")
 	seriesData := SeriesData{
 		ErrorCode: "",
 		Series:    series,
@@ -352,9 +353,9 @@ func seriesSaveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err = seriesTpl.Execute(buf, seriesData)
-	handleError(err)
+	util.HandleError(err, "Error executing template")
 	_, err = buf.WriteTo(w)
-	handleError(err)
+	util.HandleError(err, "Error writing template")
 }
 
 func ideaRemoveHandler(w http.ResponseWriter, r *http.Request) {
@@ -421,28 +422,15 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	buf := &bytes.Buffer{}
 	err = resultsTpl.Execute(buf, post)
-	handleError(err)
+	util.HandleError(err, "Error executing template")
 	_, err = buf.WriteTo(w)
-	handleError(err)
+	util.HandleError(err, "Error writing template")
 }
 
 func testHandler(w http.ResponseWriter, r *http.Request) {
-
-	post := Post{
-		Title:          "Test Post 007",
-		Content:        "This is a test post from code for real this time",
-		PublishStatus:  "draft",
-		UseGpt4:        false,
-		ConceptAsTitle: false,
-		IncludeYt:      false,
-		GenerateImg:    false,
-		DownloadImg:    false,
-		UnsplashImg:    false,
-		IdeaId:         "",
-	}
 	buf := &bytes.Buffer{}
-	err := resultsTpl.Execute(buf, post)
-	handleError(err)
-	_, err = buf.WriteTo(w)
-	handleError(err)
+	renderErr := resultsTpl.Execute(buf, nil)
+	util.HandleError(renderErr, "Error executing template")
+	_, renderErr = buf.WriteTo(w)
+	util.HandleError(renderErr, "Error writing template")
 }
