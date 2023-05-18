@@ -153,6 +153,7 @@ func main() {
 					UnsplashImg:    unsplashImg,
 					IdeaId:         strconv.Itoa(idea.Id),
 					UnsplashSearch: unsplashSearch,
+					Concept:        idea.IdeaConcept,
 				}
 
 				err, post = writeArticle(post)
@@ -271,6 +272,7 @@ func writeArticle(post Post) (error, Post) {
 		if err != nil {
 			return err, post
 		}
+		util.Logger.Info().Msg("Generating Article from Prompt" + webPrompt.String() + "")
 		articleResp, err := openai.GenerateArticle(post.UseGpt4, webPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 		if err != nil {
 			return err, post

@@ -34,6 +34,7 @@ type Post struct {
 	IdeaId         string `json:"idea-id"`
 	UnsplashSearch string `json:"unsplash-search"`
 	Keyword        string `json:"keyword"`
+	Concept        string `json:"concept"`
 }
 
 type PageData struct {
@@ -393,6 +394,17 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		iLen = 500
 	}
 
+	iId, err := strconv.Atoi(ideaId)
+	if err != nil {
+		iId = 0
+	}
+	concept := ""
+	if iId > 0 {
+		idea, err := models.GetIdeaById(ideaId)
+		util.HandleError(err, "Error getting idea")
+		concept = idea.IdeaConcept
+	}
+
 	post := Post{
 		Title:          "",
 		Content:        "",
@@ -414,9 +426,10 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		UnsplashImg:    unsplashImg == "true",
 		IdeaId:         ideaId,
 		UnsplashSearch: unsplashSearch,
+		Concept:        concept,
 	}
 
-	err, post := writeArticle(post)
+	err, post = writeArticle(post)
 	if err != nil {
 		post.Error = err.Error()
 	}
