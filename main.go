@@ -342,6 +342,7 @@ func writeArticle(post Post) (error, Post) {
 			return err, post
 		}
 		newImgPrompt = imgBuiltPrompt.String()
+		util.Logger.Info().Msg("Img Prompt Out is: " + newImgPrompt)
 		post.Image = generateImage(newImgPrompt)
 	} else if post.Error == "" && post.DownloadImg && post.ImgUrl != "" {
 		response, err := http.Get(post.ImgUrl)
