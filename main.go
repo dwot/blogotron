@@ -56,12 +56,12 @@ func main() {
 		util.Logger.Error().Err(err).Msg("Could not migrate database")
 		return
 	}
-	Settings, err = models.GetSettings()
+	Settings, err = models.GetSettingsSimple()
 	if err != nil {
 		util.Logger.Error().Err(err).Msg("Could not load settings from db")
 		return
 	}
-	Templates, err = models.GetTemplates()
+	Templates, err = models.GetTemplatesSimple()
 	if err != nil {
 		util.Logger.Error().Err(err).Msg("Could not load templates from db")
 		return
@@ -775,4 +775,22 @@ func postToWordpress(post Post) error {
 	}
 	util.Logger.Info().Msg("Post created successfully!")
 	return nil
+}
+
+func loadSettings() {
+	newSettings, err := models.GetSettingsSimple()
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error loading settings")
+	} else {
+		Settings = newSettings
+	}
+}
+
+func loadTemplates() {
+	newTemplates, err := models.GetTemplatesSimple()
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error loading templates")
+	} else {
+		Templates = newTemplates
+	}
 }

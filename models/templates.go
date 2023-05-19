@@ -11,7 +11,7 @@ type Template struct {
 	UpdateDate   string `json:"update_dt"`
 }
 
-func GetTemplates() (map[string]string, error) {
+func GetTemplatesSimple() (map[string]string, error) {
 	rows, err := DB.Query("SELECT template_name, template_text, create_dt, update_dt from templates ORDER BY template_name")
 
 	if err != nil {
@@ -31,6 +31,37 @@ func GetTemplates() (map[string]string, error) {
 		}
 
 		templates[singleEntry.TemplateName] = singleEntry.TemplateText
+	}
+
+	err = rows.Err()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return templates, err
+}
+
+func GetTemplates() (map[string]Template, error) {
+	rows, err := DB.Query("SELECT template_name, template_text, create_dt, update_dt from templates ORDER BY template_name")
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	templates := make(map[string]Template)
+
+	for rows.Next() {
+		singleEntry := Template{}
+		err = rows.Scan(&singleEntry.TemplateName, &singleEntry.TemplateText, &singleEntry.CreateDate, &singleEntry.UpdateDate)
+
+		if err != nil {
+			return nil, err
+		}
+
+		templates[singleEntry.TemplateName] = singleEntry
 	}
 
 	err = rows.Err()

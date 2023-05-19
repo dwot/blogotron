@@ -2,12 +2,55 @@
     <section class="container">
         <div class="container px-5 my-5">
             <form id="contentForm" action="/templatesSave" method="POST">
-                {{range $key, $value := .Templates}}
-                    <div class="mb-3">
-                        <label for="{{$key}}" class="form-label">{{$key}}</label>
-                        <input type="text" class="form-control" id="{{$key}}" name="{{$key}}" value="{{$value}}">
+                <div class="mb-3">
+                    <label for="system-prompt" class="form-label">System Prompt</label>
+                    <input type="text" class="form-control" id="system-prompt"
+                           name="system-prompt" value="{{ (index .Templates "system-prompt").TemplateText }}">
+                    <div id="system-promptHelpBlock" class="form-text">
+                        This is a base instruction that prepends most directions given to the BOT. <br>
+                    Default: You are blog writer and you want to write a new article.
                     </div>
-                {{end}}
+                </div>
+                <div class="mb-3">
+                    <label for="article-prompt" class="form-label">Writing Prompt</label>
+                    <textarea class="form-control" id="article-prompt" style="height: 10rem;" name="article-prompt">{{ (index .Templates "article-prompt").TemplateText }}</textarea>
+                    <div id="article-promptHelpBlock" class="form-text">This is the instruction given when an idea is to be written to an article. Be sure to include markup to include Prompt, Length and Keyword. <br>
+                        Default: Write an article about &#123;&#123;.Prompt	&#125;&#125;.  The article should be &#123;&#123;.Length&#125;&#125; words long and it should use HTML headings and subheadings to organize the article.  Include the primary keyword (which is &#123;&#123;.Keyword&#125;&#125;) in the title, the first paragraph, and a couple of times throughout the text, as naturally as possible.  Include a good title wrapped in an h1 tag.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="title-prompt" class="form-label">Title Prompt</label>
+                    <input type="text" class="form-control" id="title-prompt"
+                           name="title-prompt" value="{{ (index .Templates "title-prompt").TemplateText }}">
+                    <div id="title-promptHelpBlock" class="form-text">This is the instruction given when a Title is to be created.  If a title can be pulled from the article this will not be used.<br>
+                        Default: Find a title for your article. Use the language of the article.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="description-prompt" class="form-label">Description Prompt</label>
+                    <textarea class="form-control" id="description-prompt" style="height: 10rem;" name="description-prompt">{{ (index .Templates "description-prompt").TemplateText }}</textarea>
+                    <div id="description-promptHelpBlock" class="form-text">
+                        This is the instruction given when a Description is to be created.  Be sure to include the Keyword markup.<br>
+                        Default: Write a concise and captivating meta description for the article that includes the primary keyword &#123;&#123;.Keyword&#125;&#125;. Return the description alone, no other text or markup.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="imggen-prompt" class="form-label">Image Generation Prompt</label>
+                    <textarea class="form-control" id="imggen-prompt" style="height: 10rem;" name="imggen-prompt">{{ (index .Templates "imggen-prompt").TemplateText }}"></textarea>
+                    <div id="imggen-promptHelpBlock" class="form-text">
+                        This is the instruction given when asking the AI to create a good prompt for AI image generation.<br>
+                        Default: Come up with a good prompt to give to Dall-E to generate an image to accompany your article.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="imgsearch-prompt" class="form-label">Image Search Prompt</label>
+                    <input type="text" class="form-control" id="imgsearch-prompt"
+                           name="imgsearch-prompt" value="{{ (index .Templates "imgsearch-prompt").TemplateText }}">
+                    <div id="imgsearch-promptHelpBlock" class="form-text">
+                        This is the instruction given when asking the AI to create a good search phrase for image search.<br>
+                        Default: Come up with a simple search term to find an image on Unsplash to use in your article.
+                    </div>
+                </div>
                 <div class="d-grid">
                     <button type="submit" value="Save" class="btn btn-success" id="submit">Save</button>
                 </div>

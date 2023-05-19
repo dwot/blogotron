@@ -2,22 +2,97 @@
     <section class="container">
         <div class="container px-5 my-5">
             <form id="contentForm" action="/settingsSave" method="POST">
-                {{range $key, $value := .Settings}}
-                    <div class="mb-3">
-                        <label for="{{$key}}" class="form-label">{{$key}}</label>
-                        {{ if eq $key "OPENAI_API_KEY" }}
-                            <input type="password" class="form-control" id="{{$key}}" name="{{$key}}" value="{{$value}}">
-                        {{ else if eq $key "UNSPLASH_ACCESS_KEY" }}
-                            <input type="password" class="form-control" id="{{$key}}" name="{{$key}}" value="{{$value}}">
-                        {{ else if eq $key "UNSPLASH_SECRET_KEY" }}
-                        <input type="password" class="form-control" id="{{$key}}" name="{{$key}}" value="{{$value}}">
-                        {{ else if eq $key "WP_PASSWORD" }}
-                        <input type="password" class="form-control" id="{{$key}}" name="{{$key}}" value="{{$value}}">
-                        {{else}}
-                            <input type="text" class="form-control" id="{{$key}}" name="{{$key}}" value="{{$value}}">
-                        {{end}}
-                    </div>
-                {{end}}
+                <div class="alert alert-warning" role="alert">
+                    Restart is required after saving settings.
+                </div>
+                <div class="mb-3">
+                    <label for="BLOGOTRON_PORT" class="form-label">BLOGOTRON_PORT</label>
+                    <input type="text" class="form-control" id="BLOGOTRON_PORT" name="BLOGOTRON_PORT" value="{{ (index .Settings "BLOGOTRON_PORT").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="BLOGOTRON_API_PORT" class="form-label">BLOGOTRON_API_PORT</label>
+                    <input type="text" class="form-control" id="BLOGOTRON_API_PORT" name="BLOGOTRON_API_PORT" value="{{ (index .Settings "BLOGOTRON_API_PORT").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="OPENAI_API_KEY" class="form-label">OPENAI_API_KEY</label>
+                    <input type="password" class="form-control" id="OPENAI_API_KEY" name="OPENAI_API_KEY" value="{{ (index .Settings "OPENAI_API_KEY").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="ENABLE_GPT4" class="form-label">ENABLE_GPT4</label>
+                    <input type="text" class="form-control" id="ENABLE_GPT4" name="ENABLE_GPT4" value="{{ (index .Settings "ENABLE_GPT4").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="WP_URL" class="form-label">WP_URL</label>
+                    <input type="text" class="form-control" id="WP_URL" name="WP_URL" value="{{ (index .Settings "WP_URL").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="WP_USERNAME" class="form-label">WP_USERNAME</label>
+                    <input type="text" class="form-control" id="WP_USERNAME" name="WP_USERNAME" value="{{ (index .Settings "WP_USERNAME").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="WP_PASSWORD" class="form-label">WP_PASSWORD</label>
+                    <input type="password" class="form-control" id="WP_PASSWORD" name="WP_PASSWORD" value="{{ (index .Settings "WP_PASSWORD").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="IMG_MODE" class="form-label">IMG_MODE</label>
+                    <input type="text" class="form-control" id="IMG_MODE" name="IMG_MODE" value="{{ (index .Settings "IMG_MODE").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="LOW_IDEA_THRESHOLD" class="form-label">LOW_IDEA_THRESHOLD</label>
+                    <input type="text" class="form-control" id="LOW_IDEA_THRESHOLD" name="LOW_IDEA_THRESHOLD" value="{{ (index .Settings "LOW_IDEA_THRESHOLD").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="AUTO_POST_ENABLE" class="form-label">AUTO_POST_ENABLE</label>
+                    <input type="text" class="form-control" id="AUTO_POST_ENABLE" name="AUTO_POST_ENABLE" value="{{ (index .Settings "AUTO_POST_ENABLE").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="AUTO_POST_IMG_ENGINE" class="form-label">AUTO_POST_IMG_ENGINE</label>
+                    <input type="text" class="form-control" id="AUTO_POST_IMG_ENGINE" name="AUTO_POST_IMG_ENGINE" value="{{ (index .Settings "AUTO_POST_IMG_ENGINE").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="AUTO_POST_INTERVAL" class="form-label">AUTO_POST_INTERVAL</label>
+                    <input type="text" class="form-control" id="AUTO_POST_INTERVAL" name="AUTO_POST_INTERVAL" value="{{ (index .Settings "AUTO_POST_INTERVAL").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="AUTO_POST_LEN" class="form-label">AUTO_POST_LEN</label>
+                    <input type="text" class="form-control" id="AUTO_POST_LEN" name="AUTO_POST_LEN" value="{{ (index .Settings "AUTO_POST_LEN").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="AUTO_POST_STATE" class="form-label">AUTO_POST_STATE</label>
+                    <input type="text" class="form-control" id="AUTO_POST_STATE" name="AUTO_POST_STATE" value="{{ (index .Settings "AUTO_POST_STATE").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="SD_URL" class="form-label">SD_URL</label>
+                    <input type="text" class="form-control" id="SD_URL" name="SD_URL" value="{{ (index .Settings "SD_URL").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="IMG_HEIGHT" class="form-label">IMG_HEIGHT</label>
+                    <input type="text" class="form-control" id="IMG_HEIGHT" name="IMG_HEIGHT" value="{{ (index .Settings "IMG_HEIGHT").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="IMG_WIDTH" class="form-label">IMG_WIDTH</label>
+                    <input type="text" class="form-control" id="IMG_WIDTH" name="IMG_WIDTH" value="{{ (index .Settings "IMG_WIDTH").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="IMG_SAMPLER" class="form-label">IMG_SAMPLER</label>
+                    <input type="text" class="form-control" id="IMG_SAMPLER" name="IMG_SAMPLER" value="{{ (index .Settings "IMG_SAMPLER").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="IMG_STEPS" class="form-label">IMG_STEPS</label>
+                    <input type="text" class="form-control" id="IMG_STEPS" name="IMG_STEPS" value="{{ (index .Settings "IMG_STEPS").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="IMG_NEGATIVE_PROMPTS" class="form-label">IMG_NEGATIVE_PROMPTS</label>
+                    <input type="text" class="form-control" id="IMG_NEGATIVE_PROMPTS" name="IMG_NEGATIVE_PROMPTS" value="{{ (index .Settings "IMG_NEGATIVE_PROMPTS").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="UNSPLASH_ACCESS_KEY" class="form-label">UNSPLASH_ACCESS_KEY</label>
+                    <input type="password" class="form-control" id="UNSPLASH_ACCESS_KEY" name="UNSPLASH_ACCESS_KEY" value="{{ (index .Settings "UNSPLASH_ACCESS_KEY").SettingValue }}">
+                </div>
+                <div class="mb-3">
+                    <label for="UNSPLASH_SECRET_KEY" class="form-label">UNSPLASH_SECRET_KEY</label>
+                    <input type="password" class="form-control" id="UNSPLASH_SECRET_KEY" name="UNSPLASH_SECRET_KEY" value="{{ (index .Settings "UNSPLASH_SECRET_KEY").SettingValue }}">
+                </div>
                 <div class="d-grid">
                     <button type="submit" value="Save" class="btn btn-success" id="submit">Save</button>
                 </div>

@@ -12,8 +12,7 @@ type Setting struct {
 	UpdateDate   string `json:"update_dt"`
 }
 
-// GetSettings returns settings as key value pairs
-func GetSettings() (map[string]string, error) {
+func GetSettingsSimple() (map[string]string, error) {
 	rows, err := DB.Query("SELECT setting_name, setting_value, create_dt, update_dt from settings ORDER BY setting_name")
 
 	if err != nil {
@@ -33,6 +32,38 @@ func GetSettings() (map[string]string, error) {
 		}
 
 		settings[singleEntry.SettingName] = singleEntry.SettingValue
+	}
+
+	err = rows.Err()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return settings, err
+}
+
+// GetSettings returns settings as key value pairs
+func GetSettings() (map[string]Setting, error) {
+	rows, err := DB.Query("SELECT setting_name, setting_value, create_dt, update_dt from settings ORDER BY setting_name")
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	settings := make(map[string]Setting)
+
+	for rows.Next() {
+		singleEntry := Setting{}
+		err = rows.Scan(&singleEntry.SettingName, &singleEntry.SettingValue, &singleEntry.CreateDate, &singleEntry.UpdateDate)
+
+		if err != nil {
+			return nil, err
+		}
+
+		settings[singleEntry.SettingName] = singleEntry
 	}
 
 	err = rows.Err()

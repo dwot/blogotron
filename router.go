@@ -65,11 +65,11 @@ type IdeaData struct {
 }
 type SettingsData struct {
 	ErrorCode string
-	Settings  map[string]string
+	Settings  map[string]models.Setting
 }
 type TemplatesData struct {
 	ErrorCode string
-	Templates map[string]string
+	Templates map[string]models.Template
 }
 
 func tmplPath(file string) string {
@@ -553,20 +553,8 @@ func settingsSaveHandler(w http.ResponseWriter, r *http.Request) {
 			util.Logger.Error().Err(err).Msg("Error updating setting")
 		}
 	}
-
-	settingsData := SettingsData{
-		ErrorCode: "",
-		Settings:  settings,
-	}
-	buf := &bytes.Buffer{}
-	renderErr := settingsTpl.Execute(buf, settingsData)
-	if renderErr != nil {
-		util.Logger.Error().Err(renderErr).Msg("Error executing template")
-	}
-	_, renderErr = buf.WriteTo(w)
-	if renderErr != nil {
-		util.Logger.Error().Err(renderErr).Msg("Error writing template")
-	}
+	loadSettings()
+	settingsHandler(w, r)
 
 }
 
@@ -600,19 +588,6 @@ func templateSaveHandler(w http.ResponseWriter, r *http.Request) {
 			util.Logger.Error().Err(err).Msg("Error updating setting")
 		}
 	}
-
-	templatesData := TemplatesData{
-		ErrorCode: "",
-		Templates: templates,
-	}
-	buf := &bytes.Buffer{}
-	renderErr := templatesTpl.Execute(buf, templatesData)
-	if renderErr != nil {
-		util.Logger.Error().Err(renderErr).Msg("Error executing template")
-	}
-	_, renderErr = buf.WriteTo(w)
-	if renderErr != nil {
-		util.Logger.Error().Err(renderErr).Msg("Error writing template")
-	}
-
+	loadTemplates()
+	templateHandler(w, r)
 }
