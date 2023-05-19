@@ -4,9 +4,8 @@ Blog-o-Tron (BOT) is an experimental interface between wordpress and openAI.  It
 It is a work in progress and is not ready for production use. 
 
 ## Configuration
-### Config Files
-#### .env
-The .env file contains the environment variables for the application.  The following variables are required:
+### Settings 
+#### Settings have been migrated to the database in the latest version along w/ prompts from the config file.
 - WP_URL - The URL of the wordpress instance
 - WP_USERNAME - The username of the wordpress user
 - WP_PASSWORD - The application password of the wordpress user.  See https://www.paidmembershipspro.com/create-application-password-wordpress/
@@ -25,9 +24,6 @@ The .env file contains the environment variables for the application.  The follo
 - AUTO_POST_STATE - The state of the auto post.  Default is draft.  Options are publish or draft.
 - LOW_IDEA_THRESHOLD - The threshold for invoking idea generation.  Default is 0 which disables automatic idea generation.
 
-#### config.yml
-The config.yml file contains prompt templates for the various prompts used by the application.  Copy the config.yml.example file to config.yml and customize the values.
-
 ### Build the Docker Image
 1. git clone https://github.com/dwot/BlogoTron.git
 2. cd BlogoTron
@@ -35,10 +31,8 @@ The config.yml file contains prompt templates for the various prompts used by th
 
 ### Run the Docker Image
 1. Create a dir to hold the config files and the database
-2. Copy the .env.example file to .env and edit the values, saving the file in the config dir
-3. Copy the config.yml.example file to config.yml in a local dir and edit the values, saving the file in the config dir
-4. docker run -d -p 8666:8666 -v /path/to/local/.env:/app/.env -v /path/to/local/config.yml:/app/config.yml -v /path/to/local/blogtron.db:/app/blogtron.db blogotron:latest
-5. Browse to http://localhost:8666
+2. docker run -d -p 8666:8666 -v /path/to/local/.env:/app/.env -v /path/to/local/config.yml:/app/config.yml -v /path/to/local/blogtron.db:/app/blogtron.db blogotron:latest
+3. Browse to http://localhost:8666
 
 ### Run the Docker Compose
 The docker compose will create a database, wordpress instance, redis instance and the blogotron instance.

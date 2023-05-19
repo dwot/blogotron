@@ -34,9 +34,7 @@ services:
   blogotron:
     image: docker.io/library/blogotron:latest
     volumes:
-      - /app/config.yml
       - /app/blogotron.db
-      - /app/.env
 volumes:
   db_data:
   wp_data:
