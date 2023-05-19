@@ -36,7 +36,7 @@
                 </div>
                 <div class="mb-3">
                     <label for="imggen-prompt" class="form-label">Image Generation Prompt</label>
-                    <textarea class="form-control" id="imggen-prompt" style="height: 10rem;" name="imggen-prompt">{{ (index .Templates "imggen-prompt").TemplateText }}"></textarea>
+                    <textarea class="form-control" id="imggen-prompt" style="height: 10rem;" name="imggen-prompt">{{ (index .Templates "imggen-prompt").TemplateText }}</textarea>
                     <div id="imggen-promptHelpBlock" class="form-text">
                         This is the instruction given when asking the AI to create a good prompt for AI image generation.<br>
                         Default: Come up with a good prompt to give to Dall-E to generate an image to accompany your article.
