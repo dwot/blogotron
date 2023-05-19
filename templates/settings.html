@@ -5,7 +5,17 @@
                 {{range $key, $value := .Settings}}
                     <div class="mb-3">
                         <label for="{{$key}}" class="form-label">{{$key}}</label>
-                        <input type="text" class="form-control" id="{{$key}}" name="{{$key}}" value="{{$value}}">
+                        {{ if eq $key "OPENAI_API_KEY" }}
+                            <input type="password" class="form-control" id="{{$key}}" name="{{$key}}" value="{{$value}}">
+                        {{ else if eq $key "UNSPLASH_ACCESS_KEY" }}
+                            <input type="password" class="form-control" id="{{$key}}" name="{{$key}}" value="{{$value}}">
+                        {{ else if eq $key "UNSPLASH_SECRET_KEY" }}
+                        <input type="password" class="form-control" id="{{$key}}" name="{{$key}}" value="{{$value}}">
+                        {{ else if eq $key "WP_PASSWORD" }}
+                        <input type="password" class="form-control" id="{{$key}}" name="{{$key}}" value="{{$value}}">
+                        {{else}}
+                            <input type="text" class="form-control" id="{{$key}}" name="{{$key}}" value="{{$value}}">
+                        {{end}}
                     </div>
                 {{end}}
                 <div class="d-grid">

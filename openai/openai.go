@@ -5,24 +5,71 @@ import (
 	"encoding/base64"
 	"errors"
 	"golang/util"
+	"strconv"
 )
 
 import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
+var TopicTemplate = "Come up with {{.IdeaCount}} new and different topics to write multiple blog posts about. {{.IdeaConcept}}  Each of your new topics should be completely different from the provided existing topics but appeal to the same general audience and be appropriate for the same blog.  The should be broad categories that can be used to drive ideas for many blog articles."
+var KeywordTemplate = "You are an SEO expert. Given the article idea \"{{.Prompt}}\", suggest a relevant and strong primary keyword that aligns with this topic. Consider the potential search intent of users interested in this topic, and aim for a keyword that is specific, has a good balance between search volume and competition, and accurately represents the main focus of the article."
+var IdeaTemplate = "Come up with {{.IdeaCount}} new ideas for articles. {{.IdeaConcept}}"
+
 func GenerateArticle(apiKey string, useGpt4 bool, prompt string, systemPrompt string) (article string, err error) {
-	article, err = generate(apiKey, useGpt4, prompt, systemPrompt)
+	hardArticleRules := ""
+	article, err = generate(apiKey, useGpt4, prompt+hardArticleRules, systemPrompt)
+	util.Logger.Info().Msg("Generated article: " + strconv.Itoa(len(article)) + " characters")
 	return
 }
 
+func GenerateTopics(apiKey string, useGpt4 bool, prompt string, systemPrompt string) (topics string, err error) {
+	hardTopicRules := " Return the results as a single line, unnumbered Pipe-Delimitted list. Each topic should not be encapsulated in quotation marks."
+	topics, err = generate(apiKey, useGpt4, prompt+hardTopicRules, systemPrompt)
+	util.Logger.Info().Msg("Generated topics: " + topics)
+	return
+}
+
+func GenerateIdeas(apiKey string, useGpt4 bool, prompt string, systemPrompt string) (ideas string, err error) {
+	hardIdeaRules := " Return the results as a single line, unnumbered Pipe-Delimitted list. Each idea should not be encapsulated in quotation marks."
+	ideas, err = generate(apiKey, useGpt4, prompt+hardIdeaRules, systemPrompt)
+	util.Logger.Info().Msg("Generated ideas: " + ideas)
+	return
+}
+
+func GenerateKeywords(apiKey string, useGpt4 bool, prompt string, systemPrompt string) (keyword string, err error) {
+	hardKeywordRules := " Return the keyword alone, no other text or markup."
+	keyword, err = generate(apiKey, useGpt4, prompt+hardKeywordRules, systemPrompt)
+	util.Logger.Info().Msg("Generated keyword: " + keyword)
+	return
+}
+
+func GenerateDescription(apiKey string, useGpt4 bool, article string, prompt string, systemPrompt string) (description string, err error) {
+	hardDescriptionRules := " Return the description alone, no other text or markup.  Do not include any new keywords just the body of the description itself."
+	description, err = generate(apiKey, useGpt4, prompt+hardDescriptionRules, systemPrompt, article)
+	util.Logger.Info().Msg("Generated Description: " + description)
+	return
+}
+func GenerateImagePrompt(apiKey string, useGpt4 bool, article string, prompt string, systemPrompt string) (imgPrompt string, err error) {
+	hardImagePromptRules := ""
+	imgPrompt, err = generate(apiKey, useGpt4, prompt+hardImagePromptRules, systemPrompt, article)
+	util.Logger.Info().Msg("Generated image prompt: " + imgPrompt)
+	return
+}
 func GenerateTitle(apiKey string, useGpt4 bool, article string, prompt string, systemPrompt string) (title string, err error) {
-	title, err = generate(apiKey, useGpt4, prompt, systemPrompt, article)
+	hardTitleRules := ""
+	title, err = generate(apiKey, useGpt4, prompt+hardTitleRules, systemPrompt, article)
 	util.Logger.Info().Msg("Generated title: " + title)
 	return
 }
+func GenerateImageSearch(apiKey string, useGpt4 bool, article string, prompt string, systemPrompt string) (imgSearch string, err error) {
+	hardImageSearchRules := ""
+	imgSearch, err = generate(apiKey, useGpt4, prompt+hardImageSearchRules, systemPrompt, article)
+	util.Logger.Info().Msg("Generated Image Search: " + imgSearch)
+	return
+}
 
-func GenerateImg(p string, apiKey string) []byte {
+func GenerateImg(p string, apiKey string) ([]byte, error) {
 	client := openai.NewClient(apiKey)
 	ctx := context.Background()
 	reqBase64 := openai.ImageRequest{
@@ -32,18 +79,16 @@ func GenerateImg(p string, apiKey string) []byte {
 		N:              1,
 	}
 	respBase64, err := client.CreateImage(ctx, reqBase64)
-	util.HandleError(err, "Error generating image")
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	imgBytes, err := base64.StdEncoding.DecodeString(respBase64.Data[0].B64JSON)
-	util.HandleError(err, "Error decoding image")
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
-	return imgBytes
+	return imgBytes, nil
 }
 
 func generate(apiKey string, useGpt4 bool, prompt string, systemPrompt string, article ...string) (string, error) {
@@ -73,13 +118,11 @@ func generate(apiKey string, useGpt4 bool, prompt string, systemPrompt string, a
 	})
 
 	if err != nil {
-		util.HandleError(err, "Error generating article")
 		return "", err
 	}
 
 	if resp.Choices[0].FinishReason != "stop" {
 		err = errors.New("ChatCompletion error (FinishReason): " + resp.Choices[0].FinishReason)
-		util.HandleError(err, "Error generating article")
 		return "", err
 	}
 

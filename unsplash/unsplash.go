@@ -4,13 +4,12 @@ import (
 	"errors"
 	"github.com/hbagdi/go-unsplash/unsplash"
 	"golang.org/x/oauth2"
-	"golang/util"
 	"io"
 	"net/http"
 	"strconv"
 )
 
-func GetImageBySearch(unsplashAccessKey string, searchString string) []byte {
+func GetImageBySearch(unsplashAccessKey string, searchString string) ([]byte, error) {
 	imgBytes := []byte{}
 	ts := oauth2.StaticTokenSource(
 		// note Client-ID in front of the access token
@@ -23,8 +22,7 @@ func GetImageBySearch(unsplashAccessKey string, searchString string) []byte {
 	opt.Query = searchString
 	searchResults, _, err := unClient.Search.Photos(&opt)
 	if err != nil {
-		util.HandleError(err, "Error searching for image")
-		return nil
+		return nil, err
 	}
 	imgUrl := ""
 	for _, c := range *searchResults.Results {
@@ -33,21 +31,18 @@ func GetImageBySearch(unsplashAccessKey string, searchString string) []byte {
 	}
 	response, err := http.Get(imgUrl)
 	if err != nil {
-		util.HandleError(err, "Error downloading image")
-		return nil
+		return nil, err
 	}
 	defer func() {
 		response.Body.Close()
 	}()
 	if response.StatusCode != 200 {
 		err = errors.New("Bad response code downloading image: " + strconv.Itoa(response.StatusCode))
-		util.HandleError(err, "Error downloading image")
-		return nil
+		return nil, err
 	}
 	imgBytes, err = io.ReadAll(response.Body)
 	if err != nil {
-		util.HandleError(err, "Error reading image")
-		return nil
+		return nil, err
 	}
-	return imgBytes
+	return imgBytes, nil
 }

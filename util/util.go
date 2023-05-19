@@ -28,17 +28,3 @@ func Init() {
 	// Remember to close the log file when you're done
 	defer logFile.Close()
 }
-
-func HandleError(err error, msg string) {
-	if err != nil {
-		Logger.Error().Err(err).Msg(msg)
-	}
-}
-
-func HandleErrorAndTerminate(err error, msg string) {
-	if err != nil {
-		Logger.Error().Err(err).Msg("Error")
-		Logger.Fatal().Err(err).Msg(msg)
-		os.Exit(1)
-	}
-}

@@ -10,7 +10,7 @@ import (
 
 func GetIdeas(c *gin.Context) {
 	ideas, err := models.GetIdeas()
-	util.HandleError(err, "GetIdeas")
+	util.Logger.Error().Err(err).Msg("GetIdeas")
 
 	if ideas == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No Records Found"})
@@ -23,7 +23,7 @@ func GetIdeas(c *gin.Context) {
 func GetIdeaById(c *gin.Context) {
 	id := c.Param("id")
 	idea, err := models.GetIdeaById(id)
-	util.HandleError(err, "GetIdeaById")
+	util.Logger.Error().Err(err).Msg("GetIdeaById")
 	// if the name is blank we can assume nothing is found
 	if idea.IdeaText == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No Records Found"})
