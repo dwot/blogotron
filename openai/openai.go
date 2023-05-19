@@ -5,26 +5,25 @@ import (
 	"encoding/base64"
 	"errors"
 	"golang/util"
-	"os"
 )
 
 import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-func GenerateArticle(useGpt4 bool, prompt string, systemPrompt string) (article string, err error) {
-	article, err = generate(useGpt4, prompt, systemPrompt)
+func GenerateArticle(apiKey string, useGpt4 bool, prompt string, systemPrompt string) (article string, err error) {
+	article, err = generate(apiKey, useGpt4, prompt, systemPrompt)
 	return
 }
 
-func GenerateTitle(useGpt4 bool, article string, prompt string, systemPrompt string) (title string, err error) {
-	title, err = generate(useGpt4, prompt, systemPrompt, article)
+func GenerateTitle(apiKey string, useGpt4 bool, article string, prompt string, systemPrompt string) (title string, err error) {
+	title, err = generate(apiKey, useGpt4, prompt, systemPrompt, article)
 	util.Logger.Info().Msg("Generated title: " + title)
 	return
 }
 
-func GenerateImg(p string) []byte {
-	client := openai.NewClient(os.Getenv("OPENAI_API_KEY"))
+func GenerateImg(p string, apiKey string) []byte {
+	client := openai.NewClient(apiKey)
 	ctx := context.Background()
 	reqBase64 := openai.ImageRequest{
 		Prompt:         p,
@@ -47,8 +46,8 @@ func GenerateImg(p string) []byte {
 	return imgBytes
 }
 
-func generate(useGpt4 bool, prompt string, systemPrompt string, article ...string) (string, error) {
-	client := openai.NewClient(os.Getenv("OPENAI_API_KEY"))
+func generate(apiKey string, useGpt4 bool, prompt string, systemPrompt string, article ...string) (string, error) {
+	client := openai.NewClient(apiKey)
 	model := openai.GPT3Dot5Turbo
 	if useGpt4 {
 		model = openai.GPT4

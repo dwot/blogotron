@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 )
 
-func buildURL(path string) (*url.URL, error) {
-	u, err := url.Parse(os.Getenv("SD_URL"))
+func buildURL(baseUrl string, path string) (*url.URL, error) {
+	u, err := url.Parse(baseUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -84,16 +83,16 @@ var (
 	}
 )
 
-func Generate(ctx context.Context, inp SimpleImageRequest) (*ImageResponse, error) {
-	return Default.Generate(ctx, inp)
+func Generate(sdUrl string, ctx context.Context, inp SimpleImageRequest) (*ImageResponse, error) {
+	return Default.Generate(sdUrl, ctx, inp)
 }
 
 type Client struct {
 	HTTP *http.Client
 }
 
-func (c *Client) Generate(ctx context.Context, inp SimpleImageRequest) (*ImageResponse, error) {
-	u, err := buildURL("/sdapi/v1/txt2img")
+func (c *Client) Generate(sdUrl string, ctx context.Context, inp SimpleImageRequest) (*ImageResponse, error) {
+	u, err := buildURL(sdUrl, "/sdapi/v1/txt2img")
 	if err != nil {
 		return nil, fmt.Errorf("error building URL: %w", err)
 	}

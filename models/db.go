@@ -13,7 +13,7 @@ import (
 )
 
 var DB *sql.DB
-var targetVersion = 2
+var targetVersion = 3
 
 func ConnectDatabase(dbName string) error {
 	db, err := sql.Open("sqlite", dbName)
@@ -40,6 +40,9 @@ func MigrateDatabase(fs source.Driver) error {
 	curVer := int(mv)
 	if curVer < targetVersion {
 		err = m.Up()
+		return err
+	} else if curVer > targetVersion {
+		err = m.Down()
 		return err
 	} else {
 		util.Logger.Info().Msg("At expected version: " + strconv.Itoa(targetVersion) + " skipping migration.")

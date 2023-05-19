@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-co-op/gocron"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 	"golang/api"
 	"golang/config"
@@ -24,7 +23,6 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,28 +32,28 @@ import (
 //go:embed sql/migrations/*.sql
 var MigrationSrc embed.FS
 
+var (
+	Settings map[string]string
+)
+
 func main() {
 	util.Init()
 	util.Logger.Info().Msg("Starting Blogotron")
-	err := godotenv.Load()
-	util.HandleErrorAndTerminate(err, "Could not load .env file")
-	err = config.ParseConfig()
+	err := config.ParseConfig()
 	util.HandleErrorAndTerminate(err, "Could not load config.yml file")
 
 	//DB
-	dbName := os.Getenv("BLOGOTRON_DB_NAME")
+	dbName := "blogtron.db"
 	err = models.ConnectDatabase(dbName)
 	util.HandleErrorAndTerminate(err, "Could not connect to database file "+dbName)
 	migSrc, err := iofs.New(MigrationSrc, "sql/migrations")
 	util.HandleErrorAndTerminate(err, "Could not load migrations")
 	err = models.MigrateDatabase(migSrc)
 	util.HandleErrorAndTerminate(err, "Could not migrate database")
+	Settings, err = models.GetSettings()
+	util.HandleErrorAndTerminate(err, "Could not load settings from db")
 
-	//API
-	apiPort := os.Getenv("BLOGOTRON_API_PORT")
-	if apiPort == "" {
-		apiPort = "8667"
-	}
+	apiPort := Settings["BLOGOTRON_API_PORT"]
 	apiGin := gin.Default()
 	v1 := apiGin.Group("/api/v1")
 	{
@@ -68,7 +66,7 @@ func main() {
 	}
 
 	//WEB SERVER
-	webPort := os.Getenv("BLOGOTRON_PORT")
+	webPort := Settings["BLOGOTRON_PORT"]
 	if webPort == "" {
 		webPort = "8666"
 	}
@@ -86,16 +84,18 @@ func main() {
 	mux.HandleFunc("/series", seriesHandler)
 	mux.HandleFunc("/seriesList", seriesListHandler)
 	mux.HandleFunc("/seriesSave", seriesSaveHandler)
+	mux.HandleFunc("/settings", settingsHandler)
+	mux.HandleFunc("/settingsSave", settingsSaveHandler)
 	mux.HandleFunc("/test", testHandler)
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
 
 	//Cron Service
-	autoPost := os.Getenv("AUTO_POST_ENABLE")
-	autoPostInterval := os.Getenv("AUTO_POST_INTERVAL")
-	autoPostImgEngine := os.Getenv("AUTO_POST_IMG_ENGINE")
-	autoPostLen := os.Getenv("AUTO_POST_LEN")
-	autoPostState := os.Getenv("AUTO_POST_STATE")
-	lowIdeaThreshold := os.Getenv("LOW_IDEA_THRESHOLD")
+	autoPost := Settings["AUTO_POST_ENABLE"]
+	autoPostInterval := Settings["AUTO_POST_INTERVAL"]
+	autoPostImgEngine := Settings["AUTO_POST_IMG_ENGINE"]
+	autoPostLen := Settings["AUTO_POST_LEN"]
+	autoPostState := Settings["AUTO_POST_STATE"]
+	lowIdeaThreshold := Settings["LOW_IDEA_THRESHOLD"]
 	cronSrv := gocron.NewScheduler(time.UTC)
 	iThreshold, convErr := strconv.Atoi(lowIdeaThreshold)
 	if convErr != nil {
@@ -200,11 +200,11 @@ type SimilarityResponse struct {
 
 func generateImage(p string) []byte {
 	var imgBytes []byte
-	imgWidth := os.Getenv("IMG_WIDTH")
-	imgHeight := os.Getenv("IMG_HEIGHT")
-	imgSampler := os.Getenv("IMG_SAMPLER")
-	imgNegativePrompts := os.Getenv("IMG_NEGATIVE_PROMPTS")
-	imgSteps := os.Getenv("IMG_STEPS")
+	imgWidth := Settings["IMG_WIDTH"]
+	imgHeight := Settings["IMG_HEIGHT"]
+	imgSampler := Settings["IMG_SAMPLER"]
+	imgNegativePrompts := Settings["IMG_NEGATIVE_PROMPTS"]
+	imgSteps := Settings["IMG_STEPS"]
 
 	iWidth, err := strconv.Atoi(imgWidth)
 	if err != nil {
@@ -220,11 +220,14 @@ func generateImage(p string) []byte {
 	}
 
 	if p != "" {
-		if os.Getenv("IMG_MODE") == "openai" {
-			imgBytes = openai.GenerateImg(p)
-		} else if os.Getenv("IMG_MODE") == "sd" {
+		imgMode := Settings["IMG_MODE"]
+		if imgMode == "openai" {
+			aiApiKey := Settings["OPENAI_API_KEY"]
+			imgBytes = openai.GenerateImg(p, aiApiKey)
+		} else if imgMode == "sd" {
+			sdUrl := Settings["SD_URL"]
 			ctx := context.Background()
-			images, err := stablediffusion.Generate(ctx, stablediffusion.SimpleImageRequest{
+			images, err := stablediffusion.Generate(sdUrl, ctx, stablediffusion.SimpleImageRequest{
 				Prompt:                            p,
 				NegativePrompt:                    imgNegativePrompts,
 				Styles:                            nil,
@@ -252,6 +255,7 @@ func writeArticle(post Post) (error, Post) {
 	newImgPrompt := ""
 	article := ""
 	title := ""
+	aiApiKey := Settings["OPENAI_API_KEY"]
 	if post.Prompt != "" {
 		if post.Keyword == "" {
 			kwTmpl := template.Must(template.New("keyword-prompt").Parse(viper.GetString("config.prompt.keyword-prompt")))
@@ -260,7 +264,7 @@ func writeArticle(post Post) (error, Post) {
 			if err != nil {
 				return err, post
 			}
-			keywordResp, err := openai.GenerateArticle(post.UseGpt4, keywordPrompt.String(), viper.GetString("config.prompt.system-prompt"))
+			keywordResp, err := openai.GenerateArticle(aiApiKey, post.UseGpt4, keywordPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 			if err != nil {
 				return err, post
 			}
@@ -273,7 +277,7 @@ func writeArticle(post Post) (error, Post) {
 			return err, post
 		}
 		util.Logger.Info().Msg("Generating Article from Prompt" + webPrompt.String() + "")
-		articleResp, err := openai.GenerateArticle(post.UseGpt4, webPrompt.String(), viper.GetString("config.prompt.system-prompt"))
+		articleResp, err := openai.GenerateArticle(aiApiKey, post.UseGpt4, webPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 		if err != nil {
 			return err, post
 		}
@@ -291,7 +295,7 @@ func writeArticle(post Post) (error, Post) {
 		}
 		if title == "" {
 			if !post.ConceptAsTitle {
-				titleResp, err := openai.GenerateTitle(false, article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
+				titleResp, err := openai.GenerateTitle(aiApiKey, false, article, viper.GetString("config.prompt.title-prompt"), viper.GetString("config.prompt.system-prompt"))
 				if err != nil {
 					return err, post
 				}
@@ -305,7 +309,7 @@ func writeArticle(post Post) (error, Post) {
 			descTmpl := template.Must(template.New("description-prompt").Parse(viper.GetString("config.prompt.description-prompt")))
 			descPrompt := new(bytes.Buffer)
 			err := descTmpl.Execute(descPrompt, post)
-			descResp, err := openai.GenerateTitle(false, article, descPrompt.String(), viper.GetString("config.prompt.system-prompt"))
+			descResp, err := openai.GenerateTitle(aiApiKey, false, article, descPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 			if err != nil {
 				return err, post
 			}
@@ -325,7 +329,7 @@ func writeArticle(post Post) (error, Post) {
 			igTmpl := template.Must(template.New("imggen-prompt").Parse(viper.GetString("config.prompt.imggen-prompt")))
 			imgGenPrompt := new(bytes.Buffer)
 			err := igTmpl.Execute(imgGenPrompt, post)
-			imgGenResp, err := openai.GenerateTitle(false, title, imgGenPrompt.String(), viper.GetString("config.prompt.system-prompt"))
+			imgGenResp, err := openai.GenerateTitle(aiApiKey, false, title, imgGenPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 			if err != nil {
 				return err, post
 			}
@@ -361,15 +365,17 @@ func writeArticle(post Post) (error, Post) {
 		}
 		post.Image = imgBytes
 	} else if post.Error == "" && post.UnsplashImg && post.UnsplashSearch != "" {
-		imgBytes := unsplash.GetImageBySearch(post.UnsplashSearch)
+		unsplashKey := Settings["UNSPLASH_ACCESS_KEY"]
+		imgBytes := unsplash.GetImageBySearch(unsplashKey, post.UnsplashSearch)
 		post.Image = imgBytes
 	} else if post.Error == "" && post.UnsplashImg && post.UnsplashSearch == "" {
-		imgSearchResp, err := openai.GenerateTitle(false, title, viper.GetString("config.prompt.imgsearch-prompt"), viper.GetString("config.prompt.system-prompt"))
+		imgSearchResp, err := openai.GenerateTitle(aiApiKey, false, title, viper.GetString("config.prompt.imgsearch-prompt"), viper.GetString("config.prompt.system-prompt"))
 		if err != nil {
 			return err, post
 		}
 		post.UnsplashSearch = imgSearchResp
-		imgBytes := unsplash.GetImageBySearch(imgSearchResp)
+		unsplashKey := Settings["UNSPLASH_ACCESS_KEY"]
+		imgBytes := unsplash.GetImageBySearch(unsplashKey, imgSearchResp)
 		post.Image = imgBytes
 	}
 	post.ImageB64 = base64.StdEncoding.EncodeToString(post.Image)
@@ -387,12 +393,13 @@ func generateIdeas(ideaCount string, builtConcept string, useGpt4 bool, sid int,
 		IdeaCount:   ideaCount,
 		IdeaConcept: builtConcept,
 	}
+	aiApiKey := Settings["OPENAI_API_KEY"]
 	ideaTmpl := template.Must(template.New("idea-prompt").Parse(viper.GetString("config.prompt.idea-prompt")))
 	ideaPrompt := new(bytes.Buffer)
 	err := ideaTmpl.Execute(ideaPrompt, prompt)
 	util.HandleError(err, "Error executing idea template")
 	util.Logger.Info().Msg("Prompt is: " + ideaPrompt.String())
-	ideaResp, err := openai.GenerateArticle(useGpt4, ideaPrompt.String(), viper.GetString("config.prompt.system-prompt"))
+	ideaResp, err := openai.GenerateArticle(aiApiKey, useGpt4, ideaPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 	util.HandleError(err, "Error generating ideas")
 	ideaResp = strings.ReplaceAll(ideaResp, "\n", "")
 	util.Logger.Info().Msg("Idea Brainstorm Results: " + ideaResp)
@@ -415,6 +422,7 @@ func generateIdeas(ideaCount string, builtConcept string, useGpt4 bool, sid int,
 func fullBrainstorm(ideaCount string, useGpt4 bool) {
 	conceptList := ""
 	builtTopic := ""
+	aiApiKey := Settings["OPENAI_API_KEY"]
 	concepts, _ := models.GetIdeaConcepts()
 	series, _ := models.GetSeries()
 	for _, concept := range concepts {
@@ -433,7 +441,7 @@ func fullBrainstorm(ideaCount string, useGpt4 bool) {
 	err := ideaTmpl.Execute(ideaPrompt, prompt)
 	util.HandleError(err, "Error executing idea template")
 	util.Logger.Info().Msg("Topic Prompt is: " + ideaPrompt.String())
-	ideaResp, err := openai.GenerateArticle(useGpt4, ideaPrompt.String(), viper.GetString("config.prompt.system-prompt"))
+	ideaResp, err := openai.GenerateArticle(aiApiKey, useGpt4, ideaPrompt.String(), viper.GetString("config.prompt.system-prompt"))
 	util.HandleError(err, "Error generating ideas")
 	ideaResp = strings.ReplaceAll(ideaResp, "\n", "")
 	util.Logger.Info().Msg("Idea Brainstorm Results: " + ideaResp)
@@ -449,12 +457,17 @@ func getWpTitles() ([]string, error) {
 	client := &http.Client{}
 
 	// Define the URL and request method
-	url := os.Getenv("WP_URL") + "/wp-json/wp/v2/posts?per_page=100"
+	baseUrl := Settings["WP_URL"]
+	//IF baseUrl ends with a slash, remove it
+	if baseUrl[len(baseUrl)-1:] == "/" {
+		baseUrl = baseUrl[:len(baseUrl)-1]
+	}
+	url := baseUrl + "/wp-json/wp/v2/posts?per_page=100"
 	method := "GET"
 
 	// Define the authentication credentials
-	username := os.Getenv("WP_USERNAME")
-	password := os.Getenv("WP_PASSWORD")
+	username := Settings["WP_USERNAME"]
+	password := Settings["WP_PASSWORD"]
 
 	// Create a request
 	req, err := http.NewRequest(method, url, nil)
@@ -514,12 +527,17 @@ func doWordpressPost(endPoint string, postData map[string]interface{}) error {
 	client := &http.Client{}
 
 	// Define the URL and request method
-	url := os.Getenv("WP_URL") + endPoint //"/wp-json/wp/v2/posts"
+	baseUrl := Settings["WP_URL"]
+	//IF baseUrl ends with a slash, remove it
+	if baseUrl[len(baseUrl)-1:] == "/" {
+		baseUrl = baseUrl[:len(baseUrl)-1]
+	}
+	url := baseUrl + endPoint //"/wp-json/wp/v2/posts"
 	method := "POST"
 
 	// Define the authentication credentials
-	username := os.Getenv("WP_USERNAME")
-	password := os.Getenv("WP_PASSWORD")
+	username := Settings["WP_USERNAME"]
+	password := Settings["WP_PASSWORD"]
 
 	// Create a request with the JSON data
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonData))
@@ -538,7 +556,7 @@ func doWordpressPost(endPoint string, postData map[string]interface{}) error {
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Connection", "keep-alive")
 	// Set the host header
-	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(os.Getenv("WP_URL"), "https://", ""), "http://", ""))
+	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(Settings["WP_URL"], "https://", ""), "http://", ""))
 	req.Header.Set("User-Agent", "PostmanRuntime/7.26.8")
 	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
 
@@ -600,12 +618,17 @@ func postImageToWordpress(imgBytes []byte, description string) int {
 	client := &http.Client{}
 
 	// Define the URL and request method
-	url := os.Getenv("WP_URL") + "/wp-json/wp/v2/media"
+	baseUrl := Settings["WP_URL"]
+	//IF baseUrl ends with a slash, remove it
+	if baseUrl[len(baseUrl)-1:] == "/" {
+		baseUrl = baseUrl[:len(baseUrl)-1]
+	}
+	url := baseUrl + "/wp-json/wp/v2/media"
 	method := "POST"
 
 	// Define the authentication credentials
-	username := os.Getenv("WP_USERNAME")
-	password := os.Getenv("WP_PASSWORD")
+	username := Settings["WP_USERNAME"]
+	password := Settings["WP_PASSWORD"]
 
 	// Create a request with the multipart body
 	req, err := http.NewRequest(method, url, body)
@@ -622,7 +645,7 @@ func postImageToWordpress(imgBytes []byte, description string) int {
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Connection", "keep-alive")
 	// Set the host header
-	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(os.Getenv("WP_URL"), "https://", ""), "http://", ""))
+	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(baseUrl, "https://", ""), "http://", ""))
 	req.Header.Set("User-Agent", "PostmanRuntime/7.26.8")
 	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
 

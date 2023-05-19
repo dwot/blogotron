@@ -6,7 +6,6 @@ import (
 	"golang/util"
 	"html/template"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -64,6 +63,10 @@ type IdeaData struct {
 	ErrorCode string
 	Idea      interface{}
 }
+type SettingsData struct {
+	ErrorCode string
+	Settings  map[string]string
+}
 
 func tmplPath(file string) string {
 	return filepath.Join("templates", file)
@@ -76,6 +79,7 @@ var seriesListTpl = template.Must(template.ParseFiles(tmplPath("seriesList.html"
 var indexTpl = template.Must(template.ParseFiles(tmplPath("index.html"), tmplPath("base.html")))
 var ideaTpl = template.Must(template.ParseFiles(tmplPath("idea.html"), tmplPath("base.html")))
 var seriesTpl = template.Must(template.ParseFiles(tmplPath("series.html"), tmplPath("base.html")))
+var settingsTpl = template.Must(template.ParseFiles(tmplPath("settings.html"), tmplPath("base.html")))
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	indexData := PageData{
@@ -101,7 +105,7 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 		ideaText = idea.IdeaText
 	}
 
-	gpt4 := os.Getenv("ENABLE_GPT4")
+	gpt4 := Settings["ENABLE_GPT4"]
 	gpt4enabled := false
 	if gpt4 == "true" {
 		gpt4enabled = true
@@ -446,4 +450,40 @@ func testHandler(w http.ResponseWriter, r *http.Request) {
 	util.HandleError(renderErr, "Error executing template")
 	_, renderErr = buf.WriteTo(w)
 	util.HandleError(renderErr, "Error writing template")
+}
+
+func settingsHandler(w http.ResponseWriter, r *http.Request) {
+	settings, err := models.GetSettings()
+	settingsData := SettingsData{
+		ErrorCode: "",
+		Settings:  settings,
+	}
+	util.HandleError(err, "Error getting settings")
+	buf := &bytes.Buffer{}
+	renderErr := settingsTpl.Execute(buf, settingsData)
+	util.HandleError(renderErr, "Error executing template")
+	_, renderErr = buf.WriteTo(w)
+	util.HandleError(renderErr, "Error writing template")
+}
+
+func settingsSaveHandler(w http.ResponseWriter, r *http.Request) {
+	settings := map[string]string{}
+	port := r.FormValue("BLOGOTRON_PORT")
+	util.Logger.Info().Msg("Port: " + port)
+	for k, v := range r.Form {
+		settings[k] = v[0]
+		_, err := models.UpsertSetting(k, v[0])
+		util.HandleError(err, "Error updating setting")
+	}
+
+	settingsData := SettingsData{
+		ErrorCode: "",
+		Settings:  settings,
+	}
+	buf := &bytes.Buffer{}
+	renderErr := settingsTpl.Execute(buf, settingsData)
+	util.HandleError(renderErr, "Error executing template")
+	_, renderErr = buf.WriteTo(w)
+	util.HandleError(renderErr, "Error writing template")
+
 }

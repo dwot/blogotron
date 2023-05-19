@@ -7,12 +7,10 @@ import (
 	"golang/util"
 	"io"
 	"net/http"
-	"os"
 	"strconv"
 )
 
-func GetImageBySearch(searchString string) []byte {
-	unsplashAccessKey := os.Getenv("UNSPLASH_ACCESS_KEY")
+func GetImageBySearch(unsplashAccessKey string, searchString string) []byte {
 	imgBytes := []byte{}
 	ts := oauth2.StaticTokenSource(
 		// note Client-ID in front of the access token
