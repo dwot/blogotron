@@ -14,6 +14,10 @@
                     <input type="text" class="form-control" id="BLOGOTRON_API_PORT" name="BLOGOTRON_API_PORT" value="{{ (index .Settings "BLOGOTRON_API_PORT").SettingValue }}">
                 </div>
                 <div class="mb-3">
+                    <label for="ENABLE_STARTUP_TESTS" class="form-label">ENABLE_STARTUP_TESTS</label>
+                    <input type="text" class="form-control" id="ENABLE_STARTUP_TESTS" name="ENABLE_STARTUP_TESTS" value="{{ (index .Settings "ENABLE_STARTUP_TESTS").SettingValue }}">
+                </div>
+                <div class="mb-3">
                     <label for="OPENAI_API_KEY" class="form-label">OPENAI_API_KEY</label>
                     <input type="password" class="form-control" id="OPENAI_API_KEY" name="OPENAI_API_KEY" value="{{ (index .Settings "OPENAI_API_KEY").SettingValue }}">
                 </div>

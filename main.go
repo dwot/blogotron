@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,6 +40,7 @@ var (
 	UnsplashStatus  = false
 	Greeting        string
 	Selfie          []byte
+	LastTestTime    string
 )
 
 func main() {
@@ -73,7 +75,11 @@ func main() {
 		return
 	}
 
-	runSystemTests()
+	if Settings["ENABLE_STARTUP_TESTS"] == "true" {
+		runSystemTests()
+	} else {
+		loadCachedTestResults()
+	}
 
 	apiPort := Settings["BLOGOTRON_API_PORT"]
 	apiGin := gin.Default()
@@ -866,4 +872,94 @@ func runSystemTests() {
 		util.Logger.Info().Msg("Unsplash Connection Successful!")
 		UnsplashStatus = true
 	}
+	LastTestTime = time.Now().Format("Jan 2, 2006 at 3:04pm (MST)")
+	//Save Greeting to greeting.txt
+	SaveStringToFile(Greeting, "greeting.txt")
+
+	//Save Selfie to selfie.png
+	SaveBytesAsPNG(Selfie, "selfie.png")
+
+	//Get all status values as a CSV string along with timestamp as a human-readable string
+	statusCsv := strconv.FormatBool(WordPressStatus) + "," + strconv.FormatBool(OpenAiStatus) + "," + strconv.FormatBool(SdStatus) + "," + strconv.FormatBool(UnsplashStatus) + "," + LastTestTime
+	SaveStringToFile(statusCsv, "status.csv")
+}
+
+func loadCachedTestResults() {
+	//Load Greeting from greeting.txt
+	greeting, err := ReadStringFromFile("greeting.txt")
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error loading greeting.txt")
+	} else {
+		Greeting = greeting
+	}
+
+	//Load Selfie from selfie.png
+	selfie, err := ReadImageToBytes("selfie.png")
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error loading selfie.png")
+	} else {
+		Selfie = selfie
+	}
+
+	//Load Status from status.csv
+	statusCsv, err := ReadStringFromFile("status.csv")
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error loading status.csv")
+	} else {
+		status := strings.Split(statusCsv, ",")
+		WordPressStatus, _ = strconv.ParseBool(status[0])
+		OpenAiStatus, _ = strconv.ParseBool(status[1])
+		SdStatus, _ = strconv.ParseBool(status[2])
+		UnsplashStatus, _ = strconv.ParseBool(status[3])
+		LastTestTime = status[4]
+	}
+}
+
+func SaveBytesAsPNG(bytes []byte, outputPath string) error {
+	// Create a new file for writing the PNG
+	file, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Write the byte array to the file
+	_, err = file.Write(bytes)
+	if err != nil {
+		return err
+	}
+
+	util.Logger.Info().Msgf("PNG file saved successfully at: %s", outputPath)
+	return nil
+}
+
+func ReadImageToBytes(filePath string) ([]byte, error) {
+	// Read the image file
+	imageData, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return imageData, nil
+}
+
+func SaveStringToFile(content string, filePath string) error {
+	// Write the string content to the file
+	err := ioutil.WriteFile(filePath, []byte(content), 0644)
+	if err != nil {
+		return err
+	}
+
+	util.Logger.Info().Msgf("String saved successfully to: %s", filePath)
+	return nil
+}
+
+func ReadStringFromFile(filePath string) (string, error) {
+	// Read the file
+	content, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
 }
