@@ -236,6 +236,7 @@ type SimilarityResponse struct {
 func generateSizedImage(p string, iWidth int, iHeight int) ([]byte, error) {
 	var imgBytes []byte
 	imgSampler := Settings["IMG_SAMPLER"]
+	imgUpscaler := Settings["IMG_UPSCALER"]
 	imgNegativePrompts := Settings["IMG_NEGATIVE_PROMPTS"]
 	imgSteps := Settings["IMG_STEPS"]
 	iSteps, err := strconv.Atoi(imgSteps)
@@ -270,6 +271,9 @@ func generateSizedImage(p string, iWidth int, iHeight int) ([]byte, error) {
 				OverrideSettings:                  struct{}{},
 				OverrideSettingsRestoreAfterwards: false,
 				SaveImages:                        true,
+				EnableHr:                          true,
+				HrScale:                           2,
+				HrUpscaler:                        imgUpscaler,
 			})
 			if err != nil {
 				return nil, err

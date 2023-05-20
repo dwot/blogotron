@@ -62,11 +62,17 @@
                                 </span>
                             </td>
                         </tr>
+                        <tr>
+                            <td>Last Tested</td>
+                            <td>
+                                {{ .LastTestTime }}
+                            </td>
+                        </tr>
                     </table>
                 </div>
                 <div>
                     <form action="/retest" method="post" id="contentForm">
-                        <button type="submit" class="btn btn-primary" id="submit">Retest Settings</button>
+                        <button type="submit" class="btn btn-primary" id="submit">Retest Connections</button>
                     </form>
                 </div>
             </div>
@@ -74,8 +80,43 @@
         <div class="col-md-8">
             <div class="container px-5 my-2">
                 <div>
-                    <!-- Add your content here -->
-                    <p class="font-monospace">We'll get around to adding something here eventually...</p>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <tr>
+                            <tr>
+                                <td>WordPress URL</td>
+                                <td>
+                                    <a href="{{ (index .Settings "WP_URL").SettingValue }}" target="_blank">{{ (index .Settings "WP_URL").SettingValue }}</a>
+                                </td>
+                            </tr>
+                            <td>Startup Tests</td>
+                                <td>
+                                <span class="badge bg-{{ if eq (index .Settings "ENABLE_STARTUP_TESTS").SettingValue "true" }}success{{ else }}danger{{ end }}">
+                                    {{ if eq (index .Settings "ENABLE_STARTUP_TESTS").SettingValue "true" }}Enabled{{ else }}Not Enabled{{ end }}
+                                </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Auto Posting</td>
+                                <td>
+                                    <span class="badge bg-{{ if eq (index .Settings "AUTO_POST_ENABLE").SettingValue "true" }}success{{ else }}danger{{ end }}">
+                                    {{ if eq (index .Settings "AUTO_POST_ENABLE").SettingValue "true" }}Enabled{{ else }}Not Enabled{{ end }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Image Engine</td>
+                                <td>
+                                    {{ if eq (index .Settings "IMG_MODE").SettingValue "sd" }}<a href="{{ (index .Settings "SD_URL").SettingValue }}" target="_blank">Stable Diffusion</a>{{else}}{{ (index .Settings "IMG_MODE").SettingValue }}{{ end }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Idea Count</td>
+                                <td>
+                                    {{.IdeaCount}} / {{ (index .Settings "LOW_IDEA_THRESHOLD").SettingValue }}
+                                </td>
+                            </tr>
+                        </table>
                 </div>
             </div>
         </div>

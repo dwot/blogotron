@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"golang/models"
+	"golang/stablediffusion"
 	"golang/util"
 	"html/template"
 	"net/http"
@@ -67,6 +69,8 @@ type IdeaData struct {
 type SettingsData struct {
 	ErrorCode string
 	Settings  map[string]models.Setting
+	Upscalers map[string]stablediffusion.Upscaler
+	Samplers  map[string]stablediffusion.Algorithm
 }
 type TemplatesData struct {
 	ErrorCode string
@@ -80,6 +84,9 @@ type IndexData struct {
 	UnsplashStatus  bool
 	Greeting        template.HTML
 	Selfie          string
+	Settings        map[string]models.Setting
+	IdeaCount       int
+	LastTestTime    string
 }
 
 func tmplPath(file string) string {
@@ -97,7 +104,12 @@ var settingsTpl = template.Must(template.ParseFiles(tmplPath("settings.html"), t
 var templatesTpl = template.Must(template.ParseFiles(tmplPath("templates.html"), tmplPath("base.html")))
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
+	settings, err := models.GetSettings()
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error getting settings")
+	}
 	selfieB64 := base64.StdEncoding.EncodeToString(Selfie)
+	ideaCount := models.GetOpenIdeaCount()
 	indexData := IndexData{
 		ErrorCode:       "",
 		WordPressStatus: WordPressStatus,
@@ -106,6 +118,9 @@ func indexHandler(w http.ResponseWriter, _ *http.Request) {
 		UnsplashStatus:  UnsplashStatus,
 		Greeting:        template.HTML(Greeting),
 		Selfie:          selfieB64,
+		Settings:        settings,
+		IdeaCount:       ideaCount,
+		LastTestTime:    LastTestTime,
 	}
 
 	buf := &bytes.Buffer{}
@@ -543,12 +558,25 @@ func testHandler(w http.ResponseWriter, r *http.Request) {
 
 func settingsHandler(w http.ResponseWriter, r *http.Request) {
 	settings, err := models.GetSettings()
+
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error getting settings")
+	}
+	sdUrl := Settings["SD_URL"]
+	ctx := context.Background()
+	upscalers, err := stablediffusion.GetUpscalers(sdUrl, ctx)
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error getting upscalers")
+	}
+	samplers, err := stablediffusion.GetSamplers(sdUrl, ctx)
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error getting samplers")
+	}
 	settingsData := SettingsData{
 		ErrorCode: "",
 		Settings:  settings,
-	}
-	if err != nil {
-		util.Logger.Error().Err(err).Msg("Error getting settings")
+		Upscalers: upscalers,
+		Samplers:  samplers,
 	}
 	buf := &bytes.Buffer{}
 	renderErr := settingsTpl.Execute(buf, settingsData)

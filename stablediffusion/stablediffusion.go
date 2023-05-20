@@ -34,6 +34,9 @@ type SimpleImageRequest struct {
 	Width            int      `json:"width"`
 	Height           int      `json:"height"`
 	SNoise           int      `json:"s_noise"`
+	EnableHr         bool     `json:"enable_hr"`
+	HrScale          int      `json:"hr_scale"`
+	HrUpscaler       string   `json:"hr_upscaler"`
 	OverrideSettings struct {
 	} `json:"override_settings"`
 	OverrideSettingsRestoreAfterwards bool `json:"override_settings_restore_afterwards"`
@@ -43,6 +46,20 @@ type SimpleImageRequest struct {
 type ImageResponse struct {
 	Images [][]byte `json:"images"`
 	Info   string   `json:"info"`
+}
+
+type Algorithm struct {
+	Name    string            `json:"name"`
+	Aliases []string          `json:"aliases"`
+	Options map[string]string `json:"options"`
+}
+
+type Upscaler struct {
+	Name      string `json:"name"`
+	ModelName string `json:"model_name"`
+	ModelPath string `json:"model_path"`
+	ModelUrl  string `json:"model_url"`
+	scale     int    `json:"scale"`
 }
 
 type ImageInfo struct {
@@ -123,4 +140,58 @@ func (c *Client) Generate(sdUrl string, ctx context.Context, inp SimpleImageRequ
 	}
 
 	return &result, nil
+}
+
+func GetSamplers(sdUrl string, ctx context.Context) (map[string]Algorithm, error) {
+	u, err := buildURL(sdUrl, "/sdapi/v1/samplers")
+	if err != nil {
+		return nil, fmt.Errorf("error building URL: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(""); err != nil {
+		return nil, fmt.Errorf("error parsing SamplerResponse: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), &buf)
+	resp, err := Default.HTTP.Do(req)
+	samplers := []Algorithm{}
+	if err := json.NewDecoder(resp.Body).Decode(&samplers); err != nil {
+		return nil, fmt.Errorf("error parsing ImageResponse: %w", err)
+	}
+	response := make(map[string]Algorithm)
+	for _, sampler := range samplers {
+		response[sampler.Name] = sampler
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("error fetching response: %w", err)
+	}
+	return response, nil
+}
+
+func GetUpscalers(sdUrl string, ctx context.Context) (map[string]Upscaler, error) {
+	u, err := buildURL(sdUrl, "/sdapi/v1/upscalers")
+	if err != nil {
+		return nil, fmt.Errorf("error building URL: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(""); err != nil {
+		return nil, fmt.Errorf("error parsing SamplerResponse: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), &buf)
+	resp, err := Default.HTTP.Do(req)
+	upscalers := []Upscaler{}
+	if err := json.NewDecoder(resp.Body).Decode(&upscalers); err != nil {
+		return nil, fmt.Errorf("error parsing ImageResponse: %w", err)
+	}
+	response := make(map[string]Upscaler)
+	for _, upscaler := range upscalers {
+		response[upscaler.Name] = upscaler
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("error fetching response: %w", err)
+	}
+	return response, nil
 }

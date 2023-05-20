@@ -4,6 +4,7 @@
             <form id="contentForm" action="/settingsSave" method="POST">
                 <div class="alert alert-warning" role="alert">
                     Restart is required after saving settings.
+                    {{ $settings := .Settings }}
                 </div>
                 <div class="mb-3">
                     <label for="BLOGOTRON_PORT" class="form-label">BLOGOTRON_PORT</label>
@@ -14,16 +15,26 @@
                     <input type="text" class="form-control" id="BLOGOTRON_API_PORT" name="BLOGOTRON_API_PORT" value="{{ (index .Settings "BLOGOTRON_API_PORT").SettingValue }}">
                 </div>
                 <div class="mb-3">
-                    <label for="ENABLE_STARTUP_TESTS" class="form-label">ENABLE_STARTUP_TESTS</label>
-                    <input type="text" class="form-control" id="ENABLE_STARTUP_TESTS" name="ENABLE_STARTUP_TESTS" value="{{ (index .Settings "ENABLE_STARTUP_TESTS").SettingValue }}">
+                    <div>
+                        <label for="ENABLE_STARTUP_TESTS" class="form-label">ENABLE_STARTUP_TESTS</label>
+                        <input type="radio" class="btn-check" name="ENABLE_STARTUP_TESTS" id="ENABLE_STARTUP_TESTS_ON" autocomplete="off" {{ if eq (index .Settings "ENABLE_STARTUP_TESTS").SettingValue "true" }}checked{{ end }} value="true">
+                        <label class="btn btn-outline-success" for="ENABLE_STARTUP_TESTS_ON">Enabled</label>
+                        <input type="radio" class="btn-check" name="ENABLE_STARTUP_TESTS" id="ENABLE_STARTUP_TESTS_OFF" autocomplete="off" {{ if eq (index .Settings "ENABLE_STARTUP_TESTS").SettingValue "false" }}checked{{ end }} value="false">
+                        <label class="btn btn-outline-danger" for="ENABLE_STARTUP_TESTS_OFF">Disabled</label>
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label for="OPENAI_API_KEY" class="form-label">OPENAI_API_KEY</label>
                     <input type="password" class="form-control" id="OPENAI_API_KEY" name="OPENAI_API_KEY" value="{{ (index .Settings "OPENAI_API_KEY").SettingValue }}">
                 </div>
                 <div class="mb-3">
-                    <label for="ENABLE_GPT4" class="form-label">ENABLE_GPT4</label>
-                    <input type="text" class="form-control" id="ENABLE_GPT4" name="ENABLE_GPT4" value="{{ (index .Settings "ENABLE_GPT4").SettingValue }}">
+                    <div>
+                        <label for="ENABLE_GPT4" class="form-label">ENABLE_GPT4</label>
+                        <input type="radio" class="btn-check" name="ENABLE_GPT4" id="ENABLE_GPT4_ON" autocomplete="off" {{ if eq (index .Settings "ENABLE_GPT4").SettingValue "true" }}checked{{ end }} value="true">
+                        <label class="btn btn-outline-success" for="ENABLE_GPT4_ON">Enabled</label>
+                        <input type="radio" class="btn-check" name="ENABLE_GPT4" id="ENABLE_GPT4_OFF" autocomplete="off" {{ if eq (index .Settings "ENABLE_GPT4").SettingValue "false" }}checked{{ end }} value="false">
+                        <label class="btn btn-outline-danger" for="ENABLE_GPT4_OFF">Disabled</label>
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label for="WP_URL" class="form-label">WP_URL</label>
@@ -39,19 +50,32 @@
                 </div>
                 <div class="mb-3">
                     <label for="IMG_MODE" class="form-label">IMG_MODE</label>
-                    <input type="text" class="form-control" id="IMG_MODE" name="IMG_MODE" value="{{ (index .Settings "IMG_MODE").SettingValue }}">
+                    <select class="form-select" id="IMG_MODE" name="IMG_MODE" >
+                        <option value="none" {{ if eq (index .Settings "IMG_MODE").SettingValue "none" }}selected{{ end }}>None</option>
+                        <option value="sd" {{ if eq (index .Settings "IMG_MODE").SettingValue "sd" }}selected{{ end }}>StableDiffusion</option>
+                        <option value="openai" {{ if eq (index .Settings "IMG_MODE").SettingValue "openai" }}selected{{ end }}>OpenAI Dall-E</option>
+                    </select>
                 </div>
                 <div class="mb-3">
                     <label for="LOW_IDEA_THRESHOLD" class="form-label">LOW_IDEA_THRESHOLD</label>
                     <input type="text" class="form-control" id="LOW_IDEA_THRESHOLD" name="LOW_IDEA_THRESHOLD" value="{{ (index .Settings "LOW_IDEA_THRESHOLD").SettingValue }}">
                 </div>
                 <div class="mb-3">
-                    <label for="AUTO_POST_ENABLE" class="form-label">AUTO_POST_ENABLE</label>
-                    <input type="text" class="form-control" id="AUTO_POST_ENABLE" name="AUTO_POST_ENABLE" value="{{ (index .Settings "AUTO_POST_ENABLE").SettingValue }}">
+                    <div>
+                        <label for="AUTO_POST_ENABLE" class="form-label">AUTO_POST_ENABLE</label>
+                        <input type="radio" class="btn-check" name="AUTO_POST_ENABLE" id="AUTO_POST_ENABLE_ON" autocomplete="off" {{ if eq (index .Settings "AUTO_POST_ENABLE").SettingValue "true" }}checked{{ end }} value="true">
+                        <label class="btn btn-outline-success" for="AUTO_POST_ENABLE_ON">Enabled</label>
+                        <input type="radio" class="btn-check" name="AUTO_POST_ENABLE" id="AUTO_POST_ENABLE_OFF" autocomplete="off" {{ if eq (index .Settings "AUTO_POST_ENABLE").SettingValue "false" }}checked{{ end }} value="false">
+                        <label class="btn btn-outline-danger" for="AUTO_POST_ENABLE_OFF">Disabled</label>
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label for="AUTO_POST_IMG_ENGINE" class="form-label">AUTO_POST_IMG_ENGINE</label>
-                    <input type="text" class="form-control" id="AUTO_POST_IMG_ENGINE" name="AUTO_POST_IMG_ENGINE" value="{{ (index .Settings "AUTO_POST_IMG_ENGINE").SettingValue }}">
+                    <select class="form-select" id="AUTO_POST_IMG_ENGINE" name="AUTO_POST_IMG_ENGINE" >
+                        <option value="none" {{ if eq (index .Settings "AUTO_POST_IMG_ENGINE").SettingValue "none" }}selected{{ end }}>None</option>
+                        <option value="generate" {{ if eq (index .Settings "AUTO_POST_IMG_ENGINE").SettingValue "generate" }}selected{{ end }}>AI Generation</option>
+                        <option value="unsplash" {{ if eq (index .Settings "AUTO_POST_IMG_ENGINE").SettingValue "unsplash" }}selected{{ end }}>Unsplash Search</option>
+                    </select>
                 </div>
                 <div class="mb-3">
                     <label for="AUTO_POST_INTERVAL" class="form-label">AUTO_POST_INTERVAL</label>
@@ -63,7 +87,10 @@
                 </div>
                 <div class="mb-3">
                     <label for="AUTO_POST_STATE" class="form-label">AUTO_POST_STATE</label>
-                    <input type="text" class="form-control" id="AUTO_POST_STATE" name="AUTO_POST_STATE" value="{{ (index .Settings "AUTO_POST_STATE").SettingValue }}">
+                    <select class="form-select" id="AUTO_POST_STATE" name="AUTO_POST_STATE" >
+                        <option value="draft" {{ if eq (index .Settings "AUTO_POST_STATE").SettingValue "draft" }}selected{{ end }}>Draft</option>
+                        <option value="publish" {{ if eq (index .Settings "AUTO_POST_STATE").SettingValue "publish" }}selected{{ end }}>Publish</option>
+                    </select>
                 </div>
                 <div class="mb-3">
                     <label for="SD_URL" class="form-label">SD_URL</label>
@@ -79,7 +106,21 @@
                 </div>
                 <div class="mb-3">
                     <label for="IMG_SAMPLER" class="form-label">IMG_SAMPLER</label>
-                    <input type="text" class="form-control" id="IMG_SAMPLER" name="IMG_SAMPLER" value="{{ (index .Settings "IMG_SAMPLER").SettingValue }}">
+                    <select class="form-select" id="IMG_SAMPLER" name="IMG_SAMPLER">
+                        <option value="">NONE</option>
+                        {{range $key, $value := .Samplers}}
+                            <option value="{{ $key }}" {{ if eq (index $settings "IMG_SAMPLER").SettingValue $key }}selected{{ end }}>{{ $key }}</option>
+                        {{ end}}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="IMG_UPSCALER" class="form-label">IMG_UPSCALER</label>
+                    <select class="form-select" id="IMG_UPSCALER" name="IMG_UPSCALER">
+                        <option value="">NONE</option>
+                        {{range $key, $value := .Upscalers}}
+                            <option value="{{ $key }}" {{ if eq (index $settings "IMG_UPSCALER").SettingValue $key }}selected{{ end }}>{{ $key }}</option>
+                        {{ end}}
+                    </select>
                 </div>
                 <div class="mb-3">
                     <label for="IMG_STEPS" class="form-label">IMG_STEPS</label>
