@@ -30,18 +30,17 @@ It is a work in progress and is not ready for production use.
 3. docker build -t blogotron:latest .
 
 ### Run the Docker Image
-1. Create a dir to hold the config files and the database
+1. Create a dir to hold the database
 2. docker run -d -p 8666:8666 -v /path/to/local/.env:/app/.env -v /path/to/local/config.yml:/app/config.yml -v /path/to/local/blogtron.db:/app/blogtron.db blogotron:latest
 3. Browse to http://localhost:8666
 
 ### Run the Docker Compose
 The docker compose will create a database, wordpress instance, redis instance and the blogotron instance.
 1. Create the Docker Image w/ the above steps
-2. Prepare you config files as above
-3. Edit the docker-compose.yml and enter proper ports and paths for your environment
-4. docker-compose up -d
-5. Browse to the wordpress port and complete the install
-6. Browse to the blogotron port and you should be set
+2. Edit the docker-compose.yml and enter proper ports and paths for your environment
+3. docker-compose up -d
+4. Browse to the wordpress port and complete the install
+5. Browse to the blogotron port and you should be set
 
 ## Usage
 ### Write
@@ -66,6 +65,48 @@ Article Length and Post State (draft or publish) can be selected.
 
 ## Stable Diffusion
 To use Stable Diffusion to generate images you'll need a functioning install of https://github.com/AUTOMATIC1111/stable-diffusion-webui with api enabled.
+I am using https://hub.docker.com/r/universonic/stable-diffusion-webui with the following docker-compose.yml
+```
+services:
+  sdweb:
+    image: universonic/stable-diffusion-webui:latest
+    ports:
+     - YOUR_PORT_HERE:8080
+    restart: unless-stopped
+    volumes:
+     - /LOCAL_DIR/extensions:/app/stable-diffusion-webui/extensions
+     - /LOCAL_DIR/models:/app/stable-diffusion-webui/models
+     - /LOCAL_DIR/outputs:/app/stable-diffusion-webui/outputs
+     - /LOCAL_DIR/localizations:/app/stable-diffusion-webui/localizations
+     - /LOCAL_DIR/entrypoint.sh:/app/entrypoint.sh
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+```
+#### Update /LOCAL_DIR to a path where you will store your models, extensions, outputs, etc.  You will need to create the directory structure.
+#### Update YOUR_PORT_HERE to the port you want to use for the webui.
 
+You'll need to get a checkpoint and VAE file and place them in the models directory.
+1. The "default" 1.5 checkpoint: https://huggingface.co/runwayml/stable-diffusion-v1-5/blob/main/v1-5-pruned-emaonly.ckpt
+2. This file will go in the "models/Stable-diffusion" directory.
+3. AND this "VAE" file:
+https://huggingface.co/stabilityai/sd-vae-ft-mse-original/blob/main/vae-ft-mse-840000-ema-pruned.ckpt
+4. This file will go in the "models/VAE" directory.
 
+You can find and download other checkpoints and VAE files here: https://huggingface.co/models?filter=stable-diffusion
+But exercise caution as code can be embedded in models and you should only use models from trusted sources.
 
+The Docker image as composed does not seem to work for me, so I've had to modify the entrypoint.sh to get it running.  We also need to modify it to add api access.
+```
+!/usr/bin/env bash
+git -C /app/stable-diffusion-webui/ pull
+/app/stable-diffusion-webui/webui.sh --api "$@"
+```
+Then run the docker-compose up -d
+
+You will need to let the install complete til you get to a hang after successfully installing a bunch of dependencies, then restart the container.  It should work then.
+I'm using an older nvidia Quadro P2000 GPU and have docker / cuda already up and running, consider having a proper setup a pre-req.
