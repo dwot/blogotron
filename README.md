@@ -1,5 +1,6 @@
 # Blog-o-Tron
 
+![Blog-o-Tron](https://github.com/dwot/BlogoTron/blob/main/assets/blogotron.png?raw=true)
 Blog-o-Tron (BOT) is an experimental interface between wordpress and openAI.  It allows for brainstorming ideas and authoring posts for a wordpress blog using OpenAI GPT-3.  It can connect to Dall-E or a Stable Diffusion instance to generate images for the post.  
 It is a work in progress and is not ready for production use. 
 
