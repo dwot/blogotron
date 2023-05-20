@@ -1,53 +1,83 @@
 {{template "header"}}
 <section class="container">
-    <div class="container px-5 my-5">
-        <div class="d-flex align-items-center mb-4">
-            <img id="ItemPreview" src="data:image/png;base64, {{ .Selfie }}" class="rounded-circle me-3" style="width: 300px; height: 300px;">
-            <div>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="container px-5">
                 <h1>Blog-o-Tron Diagnostics</h1>
-                {{ .Greeting }}
             </div>
         </div>
-        <div class="table-responsive mb-4">
-            <table class="table">
-                <tr>
-                    <td>WordPress Status</td>
-                    <td>
-                        <span class="badge bg-{{ if .WordPressStatus }}success{{ else }}danger{{ end }}">
-                            {{ if .WordPressStatus }}OK{{ else }}Not OK{{ end }}
-                        </span>
-                    </td>
-                </tr>
-                <tr>
-                    <td>OpenAI Status</td>
-                    <td>
-                        <span class="badge bg-{{ if .OpenAiStatus }}success{{ else }}danger{{ end }}">
-                            {{ if .OpenAiStatus }}OK{{ else }}Not OK{{ end }}
-                        </span>
-                    </td>
-                </tr>
-                <tr>
-                    <td>Stable Diffusion Status</td>
-                    <td>
-                        <span class="badge bg-{{ if .SdStatus }}success{{ else }}danger{{ end }}">
-                            {{ if .SdStatus }}OK{{ else }}Not OK{{ end }}
-                        </span>
-                    </td>
-                </tr>
-                <tr>
-                    <td>Unsplash Status</td>
-                    <td>
-                        <span class="badge bg-{{ if .UnsplashStatus }}success{{ else }}danger{{ end }}">
-                            {{ if .UnsplashStatus }}OK{{ else }}Not OK{{ end }}
-                        </span>
-                    </td>
-                </tr>
-            </table>
+    </div>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="container px-5 my-2">
+                <div>
+                    <img id="ItemPreview" src="data:image/png;base64, {{ .Selfie }}" class="rounded-circle me-3" style="width: 300px; height: 300px;" class="img-fluid" alt="RoboSelfie">
+                </div>
+            </div>
         </div>
-        <div>
-            <form action="/retest" method="post" id="contentForm">
-                <button type="submit" class="btn btn-primary" id="submit">Retest Settings</button>
-            </form>
+        <div class="col-md-8">
+            <div class="container px-5 my-2">
+                <div class="d-flex align-items-center mb-4">
+                    <div>
+                        {{ .Greeting }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="container px-5 my-2">
+                <div class="table-responsive">
+                    <table class="table">
+                        <tr>
+                            <td>WordPress Status</td>
+                            <td>
+                                <span class="badge bg-{{ if .WordPressStatus }}success{{ else }}danger{{ end }}">
+                                    {{ if .WordPressStatus }}OK{{ else }}Not OK{{ end }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>OpenAI Status</td>
+                            <td>
+                                <span class="badge bg-{{ if .OpenAiStatus }}success{{ else }}danger{{ end }}">
+                                    {{ if .OpenAiStatus }}OK{{ else }}Not OK{{ end }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Stable Diffusion Status</td>
+                            <td>
+                                <span class="badge bg-{{ if .SdStatus }}success{{ else }}danger{{ end }}">
+                                    {{ if .SdStatus }}OK{{ else }}Not OK{{ end }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Unsplash Status</td>
+                            <td>
+                                <span class="badge bg-{{ if .UnsplashStatus }}success{{ else }}danger{{ end }}">
+                                    {{ if .UnsplashStatus }}OK{{ else }}Not OK{{ end }}
+                                </span>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                <div>
+                    <form action="/retest" method="post" id="contentForm">
+                        <button type="submit" class="btn btn-primary" id="submit">Retest Settings</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="container px-5 my-2">
+                <div>
+                    <!-- Add your content here -->
+                    <p class="font-monospace">We'll get around to adding something here eventually...</p>
+                </div>
+            </div>
         </div>
     </div>
 </section>

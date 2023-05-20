@@ -834,7 +834,7 @@ func runSystemTests() {
 	}
 	//Test OpenAI Connection
 	util.Logger.Info().Msg("Testing OpenAI Connection...")
-	aiTestResp, err := openai.GenerateTestGreeting(Settings["OPENAI_API_KEY"], false, "You are running your start-up diagnostics, compose some humorous fake startup sequence events and a greeting as a sort of boot-up log and return them.  This response should be formatted as HTML to be inserted into a status page.  Class \"font-monospace\" should be used on the text to give it a robotic feel.  The page already exists, we just need to drop in the HTML greeting inside the existing HTML page we have, so it should not include a body or head or close or open html tags, just the markup for the text itself within the page.", "You are Blog-o-Tron a sophisticated, AI-powered blogging robot.")
+	aiTestResp, err := openai.GenerateTestGreeting(Settings["OPENAI_API_KEY"], false, "You are running your start-up diagnostics, compose some humorous fake startup sequence events and a greeting as a sort of boot-up log and return them.  This response should be formatted an <ul> in HTML to be inserted into a status page.  Class \"font-monospace\" should be used on the text to give it a robotic feel.  The page already exists, we just need to drop in the HTML greeting inside the existing HTML page we have, so it should not include a body or head or close or open html tags, just the markup for the text itself within the page.", "You are Blog-o-Tron a sophisticated, AI-powered blogging robot.")
 	if err != nil {
 		util.Logger.Error().Err(err).Msg("Error testing OpenAI API")
 	} else {
@@ -845,7 +845,7 @@ func runSystemTests() {
 	//Test StableDiffusion Connection
 	if Settings["IMG_MODE"] == "sd" {
 		util.Logger.Info().Msg("Testing StableDiffusion Connection...")
-		imgResp, err := generateSizedImage("An selfie image of Blog-o-Tron the blog-writing robot sitting in front of a computer in a futuristic lab.  Centered and in focus. Photo-realistic, Hyper-realistic, Portrait, Cyberpunk, Well Lit", 512, 512)
+		imgResp, err := generateSizedImage("An selfie image of Blog-o-Tron the blog-writing robot sitting in front of a computer in a futuristic lab waving at the camera.  Centered and in focus. Photo-realistic, Hyper-realistic, Portrait, Well Lit", 512, 512)
 		if err != nil {
 			util.Logger.Error().Err(err).Msg("Error testing StableDiffusion API")
 		} else {
