@@ -1,0 +1,54 @@
+{{template "header"}}
+    <section class="container">
+        <div class="container px-5 my-5">
+            <h4>Articles</h4>
+            <table class="table table-hover">
+                <thead>
+                <tr>
+                    <th scope="col">Id</th>
+                    <th scope="col">Title</th>
+                    <th scope="col">Content</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Primary Keyword</th>
+                    <th scope="col">Media Id</th>
+                    <th scope="col">Prompt</th>
+                    <th scope="col">Yt Url</th>
+                    <th scope="col">Img Prompt</th>
+                    <th scope="col">Img Search</th>
+                    <th scope="col">Img Src Url</th>
+                    <th scope="col">Concept</th>
+                    <th scope="col">Idea Id</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Version</th>
+                    <th scope="col">Create Date</th>
+                    <th scope="col">Update Date</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{range .Articles}}
+                <tr>
+                    <th scope="row">{{ .Id }}</th>
+                    <td>{{ .Title }}</td>
+                    <td>{{ .Content }}</td>
+                    <td>{{ .Description }}</td>
+                    <td>{{ .PrimaryKeyword }}</td>
+                    <td>{{ .MediaId }}</td>
+                    <td>{{ .Prompt }}</td>
+                    <td>{{ .YtUrl }}</td>
+                    <td>{{ .ImgPrompt }}</td>
+                    <td>{{ .ImgSearch }}</td>
+                    <td>{{ .ImgSrcUrl }}</td>
+                    <td>{{ .Concept }}</td>
+                    <td>{{ .IdeaId }}</td>
+                    <td>{{ .Status }}</td>
+                    <td>{{ .Version }}</td>
+                    <td>{{ .CreateDate }}</td>
+                    <td>{{ .UpdateDate }}</td>
+                </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+{{template "footer"}}

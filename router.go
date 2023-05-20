@@ -52,6 +52,11 @@ type PlanData struct {
 	Series    []models.Series `json:"series"`
 }
 
+type ArticleListData struct {
+	ErrorCode string           `json:"error-code"`
+	Articles  []models.Article `json:"articles"`
+}
+
 type Prompt struct {
 	IdeaCount   string
 	IdeaConcept string
@@ -103,6 +108,8 @@ var seriesTpl = template.Must(template.ParseFiles(tmplPath("series.html"), tmplP
 var settingsTpl = template.Must(template.ParseFiles(tmplPath("settings.html"), tmplPath("base.html")))
 var templatesTpl = template.Must(template.ParseFiles(tmplPath("templates.html"), tmplPath("base.html")))
 var restartTpl = template.Must(template.ParseFiles(tmplPath("restart.html"), tmplPath("base.html")))
+var articleListTpl = template.Must(template.ParseFiles(tmplPath("articleList.html"), tmplPath("base.html")))
+var articleTpl = template.Must(template.ParseFiles(tmplPath("article.html"), tmplPath("base.html")))
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	settings, err := models.GetSettings()
@@ -214,6 +221,64 @@ func seriesListHandler(w http.ResponseWriter, _ *http.Request) {
 		util.Logger.Error().Err(renderErr).Msg("Error writing template to buffer")
 	}
 
+}
+
+func articleListHandler(w http.ResponseWriter, _ *http.Request) {
+	articles, err := models.GetArticles()
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error getting articles")
+	}
+	articleData := ArticleListData{
+		ErrorCode: "",
+		Articles:  articles,
+	}
+	buf := &bytes.Buffer{}
+	renderErr := articleListTpl.Execute(buf, articleData)
+	if renderErr != nil {
+		util.Logger.Error().Err(renderErr).Msg("Error executing template")
+	}
+	_, renderErr = buf.WriteTo(w)
+	if renderErr != nil {
+		util.Logger.Error().Err(renderErr).Msg("Error writing template to buffer")
+	}
+
+}
+
+type ArticleData struct {
+	ErrorCode string
+	Article   models.Article
+	ArticleId string
+}
+
+func articleHandler(w http.ResponseWriter, r *http.Request) {
+	articleId := r.FormValue("articleId")
+	id, err := strconv.Atoi(articleId)
+	if err != nil {
+		id = 0
+	}
+	var article models.Article
+	articleData := ArticleData{
+		ErrorCode: "",
+		ArticleId: articleId,
+	}
+	if id > 0 {
+		article, err = models.GetArticleById(id)
+		if err != nil {
+			util.Logger.Error().Err(err).Msg("Error getting article by id")
+		} else {
+			articleData.Article = article
+		}
+	}
+
+	buf := &bytes.Buffer{}
+	renderErr := articleTpl.Execute(buf, articleData)
+	if renderErr != nil {
+		util.Logger.Error().Err(renderErr).Msg("Error executing template")
+	}
+	_, renderErr = buf.WriteTo(w)
+	if renderErr != nil {
+		util.Logger.Error().Err(renderErr).Msg("Error writing template to buffer")
+	}
 }
 
 func ideaHandler(w http.ResponseWriter, r *http.Request) {

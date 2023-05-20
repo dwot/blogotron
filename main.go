@@ -242,6 +242,8 @@ func startWebSrv() {
 	mux.HandleFunc("/test", testHandler)
 	mux.HandleFunc("/retest", retestHandler)
 	mux.HandleFunc("/restart", restartHandler)
+	mux.HandleFunc("/articles", articleListHandler)
+	mux.HandleFunc("/article", articleHandler)
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
 	webSrv = &http.Server{Addr: ":" + webPort, Handler: mux}
 
@@ -525,11 +527,34 @@ func writeArticle(post Post) (error, Post) {
 		post.Image = imgBytes
 	}
 	post.ImageB64 = base64.StdEncoding.EncodeToString(post.Image)
-	err := postToWordpress(post)
+	postId, mediaId, err := postToWordpress(post)
 	if err != nil {
 		return err, post
 	} else {
 		models.SetIdeaWritten(post.IdeaId)
+	}
+	//Write Post as Article to DB
+	articleDb := models.Article{
+		Title:          post.Title,
+		Content:        post.Content,
+		Description:    post.Description,
+		PrimaryKeyword: post.Keyword,
+		MediaId:        mediaId,
+		Prompt:         post.Prompt,
+		YtUrl:          post.YtUrl,
+		ImgPrompt:      newImgPrompt,
+		ImgSearch:      post.UnsplashSearch,
+		ImgSrcUrl:      post.ImgUrl,
+		Concept:        post.Concept,
+		IdeaId:         post.IdeaId,
+		Status:         "written",
+		Version:        1,
+		WordPressId:    postId,
+	}
+	_, err = models.UpsertArticle(articleDb)
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error writing article to DB")
+		return err, post
 	}
 	return nil, post
 }
@@ -677,11 +702,15 @@ func getWpTitles() ([]string, error) {
 	return titles, nil
 }
 
-func doWordpressPost(endPoint string, postData map[string]interface{}) error {
+type PostResponse struct {
+	ID int `json:"id"`
+}
+
+func doWordpressPost(endPoint string, postData map[string]interface{}) (int, error) {
 	// Convert the post data to JSON
 	jsonData, err := json.Marshal(postData)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	// Create an HTTP client
@@ -703,7 +732,7 @@ func doWordpressPost(endPoint string, postData map[string]interface{}) error {
 	// Create a request with the JSON data
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	// Calculate the content length
@@ -728,18 +757,28 @@ func doWordpressPost(endPoint string, postData map[string]interface{}) error {
 	// Set the Authorization header for basic authentication
 	req.Header.Set("Authorization", basicAuth)
 
+	postId := -1
+	var response PostResponse
 	// Send the request
 	res, err := client.Do(req)
 	if err != nil {
-		return err
+		return -1, err
 	}
 	defer res.Body.Close()
 
+	// Parse the JSON response
+	err = json.NewDecoder(res.Body).Decode(&response)
+	if err != nil {
+		return -1, err
+	} else {
+		postId = response.ID
+	}
+
 	// Check the response status code
 	if res.StatusCode != http.StatusCreated {
-		return errors.New("Post creation failed. Status code:" + strconv.Itoa(res.StatusCode))
+		return -1, errors.New("Post creation failed. Status code:" + strconv.Itoa(res.StatusCode))
 	}
-	return nil
+	return postId, nil
 }
 
 type MediaResponse struct {
@@ -857,16 +896,17 @@ func postImageToWordpress(imgBytes []byte, description string) int {
 	return mediaID
 }
 
-func postToWordpress(post Post) error {
+func postToWordpress(post Post) (int, int, error) {
 	postData := map[string]interface{}{}
+	mediaId := -1
 	if len(post.Image) > 0 {
 		util.Logger.Info().Msg("Processing Image Upload")
-		mediaID := postImageToWordpress(post.Image, post.ImagePrompt)
+		mediaId = postImageToWordpress(post.Image, post.ImagePrompt)
 		postData = map[string]interface{}{
 			"title":          post.Title,
 			"content":        post.Content,
 			"status":         post.PublishStatus,
-			"featured_media": mediaID,
+			"featured_media": mediaId,
 			"excerpt":        post.Description,
 		}
 	} else {
@@ -878,13 +918,13 @@ func postToWordpress(post Post) error {
 			"excerpt": post.Description,
 		}
 	}
-	err := doWordpressPost("/wp-json/wp/v2/posts", postData)
+	postId, err := doWordpressPost("/wp-json/wp/v2/posts", postData)
 	if err != nil {
 		util.Logger.Error().Err(err).Msg("Error creating post")
-		return err
+		return -1, -1, err
 	}
 	util.Logger.Info().Msg("Post created successfully!")
-	return nil
+	return postId, mediaId, nil
 }
 
 func loadSettings() {

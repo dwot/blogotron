@@ -13,7 +13,7 @@ import (
 )
 
 var DB *sql.DB
-var targetVersion = 5
+var targetVersion = 6
 
 func ConnectDatabase(dbName string) error {
 	db, err := sql.Open("sqlite", dbName)
