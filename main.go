@@ -31,8 +31,14 @@ import (
 var MigrationSrc embed.FS
 
 var (
-	Settings  map[string]string
-	Templates map[string]string
+	Settings        map[string]string
+	Templates       map[string]string
+	WordPressStatus = false
+	OpenAiStatus    = false
+	SdStatus        = false
+	UnsplashStatus  = false
+	Greeting        string
+	Selfie          []byte
 )
 
 func main() {
@@ -66,6 +72,8 @@ func main() {
 		util.Logger.Error().Err(err).Msg("Could not load templates from db")
 		return
 	}
+
+	runSystemTests()
 
 	apiPort := Settings["BLOGOTRON_API_PORT"]
 	apiGin := gin.Default()
@@ -103,6 +111,7 @@ func main() {
 	mux.HandleFunc("/templates", templateHandler)
 	mux.HandleFunc("/templatesSave", templateSaveHandler)
 	mux.HandleFunc("/test", testHandler)
+	mux.HandleFunc("/retest", retestHandler)
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
 
 	//Cron Service
@@ -218,22 +227,11 @@ type SimilarityResponse struct {
 	SimilarTitles []SimilarityResponse `json:"similar_titles"`
 }
 
-func generateImage(p string) ([]byte, error) {
+func generateSizedImage(p string, iWidth int, iHeight int) ([]byte, error) {
 	var imgBytes []byte
-	imgWidth := Settings["IMG_WIDTH"]
-	imgHeight := Settings["IMG_HEIGHT"]
 	imgSampler := Settings["IMG_SAMPLER"]
 	imgNegativePrompts := Settings["IMG_NEGATIVE_PROMPTS"]
 	imgSteps := Settings["IMG_STEPS"]
-
-	iWidth, err := strconv.Atoi(imgWidth)
-	if err != nil {
-		iWidth = 512
-	}
-	iHeight, err := strconv.Atoi(imgHeight)
-	if err != nil {
-		iHeight = 512
-	}
 	iSteps, err := strconv.Atoi(imgSteps)
 	if err != nil {
 		iSteps = 30
@@ -275,6 +273,22 @@ func generateImage(p string) ([]byte, error) {
 		}
 	}
 	return imgBytes, nil
+}
+
+func generateImage(p string) ([]byte, error) {
+
+	imgWidth := Settings["IMG_WIDTH"]
+	imgHeight := Settings["IMG_HEIGHT"]
+
+	iWidth, err := strconv.Atoi(imgWidth)
+	if err != nil {
+		iWidth = 512
+	}
+	iHeight, err := strconv.Atoi(imgHeight)
+	if err != nil {
+		iHeight = 512
+	}
+	return generateSizedImage(p, iWidth, iHeight)
 }
 
 func writeArticle(post Post) (error, Post) {
@@ -792,5 +806,57 @@ func loadTemplates() {
 		util.Logger.Error().Err(err).Msg("Error loading templates")
 	} else {
 		Templates = newTemplates
+	}
+}
+
+func runSystemTests() {
+	WordPressStatus = false
+	OpenAiStatus = false
+	SdStatus = false
+	UnsplashStatus = false
+
+	util.Logger.Info().Msg("Running system tests...")
+	//Test WordPress Connection
+	util.Logger.Info().Msg("Testing WordPress Connection...")
+	_, err := getWpTitles()
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error getting WordPress titles")
+	} else {
+		util.Logger.Info().Msg("WordPress Connection Successful!")
+		WordPressStatus = true
+	}
+	//Test OpenAI Connection
+	util.Logger.Info().Msg("Testing OpenAI Connection...")
+	aiTestResp, err := openai.GenerateTestGreeting(Settings["OPENAI_API_KEY"], false, "You are running your start-up diagnostics, compose some humorous fake startup sequence events and a greeting as a sort of boot-up log and return them.  This response should be formatted as HTML to be inserted into a status page.  Class \"font-monospace\" should be used on the text to give it a robotic feel.  The page already exists, we just need to drop in the HTML greeting inside the existing HTML page we have, so it should not include a body or head or close or open html tags, just the markup for the text itself within the page.", "You are Blog-o-Tron a sophisticated, AI-powered blogging robot.")
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error testing OpenAI API")
+	} else {
+		util.Logger.Info().Msg("OpenAI Connection Successful!")
+		OpenAiStatus = true
+		Greeting = aiTestResp
+	}
+	//Test StableDiffusion Connection
+	if Settings["IMG_MODE"] == "sd" {
+		util.Logger.Info().Msg("Testing StableDiffusion Connection...")
+		imgResp, err := generateSizedImage("An selfie image of Blog-o-Tron the blog-writing robot sitting in front of a computer in a futuristic lab.  Centered and in focus. Photo-realistic, Hyper-realistic, Portrait, Cyberpunk, Well Lit", 512, 512)
+		if err != nil {
+			util.Logger.Error().Err(err).Msg("Error testing StableDiffusion API")
+		} else {
+			util.Logger.Info().Msg("StableDiffusion Connection Successful!")
+			SdStatus = true
+			Selfie = imgResp
+		}
+	} else {
+		util.Logger.Error().Msg("StableDiffusion is not enabled")
+	}
+
+	//Test Unsplash Connection
+	util.Logger.Info().Msg("Testing Unsplash Connection...")
+	_, err = unsplash.GetImageBySearch(Settings["UNSPLASH_API_KEY"], "robot")
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error testing Unsplash API")
+	} else {
+		util.Logger.Info().Msg("Unsplash Connection Successful!")
+		UnsplashStatus = true
 	}
 }

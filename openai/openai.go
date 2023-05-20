@@ -37,6 +37,12 @@ func GenerateIdeas(apiKey string, useGpt4 bool, prompt string, systemPrompt stri
 	return
 }
 
+func GenerateTestGreeting(apiKey string, useGpt4 bool, prompt string, systemPrompt string) (greeting string, err error) {
+	greeting, err = generate(apiKey, useGpt4, prompt, systemPrompt)
+	util.Logger.Info().Msg("Generated keyword: " + greeting)
+	return
+}
+
 func GenerateKeywords(apiKey string, useGpt4 bool, prompt string, systemPrompt string) (keyword string, err error) {
 	hardKeywordRules := " Return the keyword alone, no other text or markup."
 	keyword, err = generate(apiKey, useGpt4, prompt+hardKeywordRules, systemPrompt)

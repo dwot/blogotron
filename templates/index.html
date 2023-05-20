@@ -1,7 +1,70 @@
 {{template "header"}}
-    <section class="container">
-        <div class="container px-5 my-5">
-            This is the main page.
+<section class="container">
+    <div class="container px-5 my-5">
+        <div class="d-flex align-items-center mb-4">
+            <img id="ItemPreview" src="data:image/png;base64, {{ .Selfie }}" class="rounded-circle me-3" style="width: 300px; height: 300px;">
+            <div>
+                <h1>Blog-o-Tron Diagnostics</h1>
+                {{ .Greeting }}
+            </div>
         </div>
-    </section>
+        <div class="table-responsive mb-4">
+            <table class="table">
+                <tr>
+                    <td>WordPress Status</td>
+                    <td>
+                        <span class="badge bg-{{ if .WordPressStatus }}success{{ else }}danger{{ end }}">
+                            {{ if .WordPressStatus }}OK{{ else }}Not OK{{ end }}
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>OpenAI Status</td>
+                    <td>
+                        <span class="badge bg-{{ if .OpenAiStatus }}success{{ else }}danger{{ end }}">
+                            {{ if .OpenAiStatus }}OK{{ else }}Not OK{{ end }}
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Stable Diffusion Status</td>
+                    <td>
+                        <span class="badge bg-{{ if .SdStatus }}success{{ else }}danger{{ end }}">
+                            {{ if .SdStatus }}OK{{ else }}Not OK{{ end }}
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Unsplash Status</td>
+                    <td>
+                        <span class="badge bg-{{ if .UnsplashStatus }}success{{ else }}danger{{ end }}">
+                            {{ if .UnsplashStatus }}OK{{ else }}Not OK{{ end }}
+                        </span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div>
+            <form action="/retest" method="post" id="contentForm">
+                <button type="submit" class="btn btn-primary" id="submit">Retest Settings</button>
+            </form>
+        </div>
+    </div>
+</section>
+<script>
+    const form = document.getElementById('contentForm');
+    // Get the form element and submit button
+    const submitButton = document.getElementById('submit');
+
+    // Add an event listener for form submission
+    form.addEventListener('submit', function(event) {
+        // Disable the submit button
+        submitButton.disabled = true;
+
+        // Show the spinner
+        submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Retesting...';
+
+    });
+</script>
+
 {{template "footer"}}

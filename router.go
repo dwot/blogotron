@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"golang/models"
 	"golang/util"
 	"html/template"
@@ -36,7 +37,7 @@ type Post struct {
 	Concept        string `json:"concept"`
 }
 
-type PageData struct {
+type WriteData struct {
 	ErrorCode   string `json:"error-code"`
 	GPT4Enabled bool   `json:"gpt4-enabled"`
 	IdeaText    string `json:"idea-text"`
@@ -71,6 +72,15 @@ type TemplatesData struct {
 	ErrorCode string
 	Templates map[string]models.Template
 }
+type IndexData struct {
+	ErrorCode       string
+	WordPressStatus bool
+	OpenAiStatus    bool
+	SdStatus        bool
+	UnsplashStatus  bool
+	Greeting        template.HTML
+	Selfie          string
+}
 
 func tmplPath(file string) string {
 	return filepath.Join("templates", file)
@@ -87,9 +97,17 @@ var settingsTpl = template.Must(template.ParseFiles(tmplPath("settings.html"), t
 var templatesTpl = template.Must(template.ParseFiles(tmplPath("templates.html"), tmplPath("base.html")))
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
-	indexData := PageData{
-		ErrorCode: "",
+	selfieB64 := base64.StdEncoding.EncodeToString(Selfie)
+	indexData := IndexData{
+		ErrorCode:       "",
+		WordPressStatus: WordPressStatus,
+		OpenAiStatus:    OpenAiStatus,
+		SdStatus:        SdStatus,
+		UnsplashStatus:  UnsplashStatus,
+		Greeting:        template.HTML(Greeting),
+		Selfie:          selfieB64,
 	}
+
 	buf := &bytes.Buffer{}
 	renderErr := indexTpl.Execute(buf, indexData)
 	if renderErr != nil {
@@ -121,7 +139,7 @@ func writeHandler(w http.ResponseWriter, r *http.Request) {
 	if gpt4 == "true" {
 		gpt4enabled = true
 	}
-	writeData := PageData{
+	writeData := WriteData{
 		ErrorCode:   "",
 		GPT4Enabled: gpt4enabled,
 		IdeaText:    ideaText,
@@ -590,4 +608,9 @@ func templateSaveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	loadTemplates()
 	templateHandler(w, r)
+}
+
+func retestHandler(w http.ResponseWriter, r *http.Request) {
+	runSystemTests()
+	indexHandler(w, r)
 }
