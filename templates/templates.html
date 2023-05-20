@@ -51,6 +51,16 @@
                         Default: Come up with a simple search term to find an image on Unsplash to use in your article.
                     </div>
                 </div>
+                <div class="mb-3">
+                    <label for="img-prompt" class="form-label">Image Prompt</label>
+                    <input type="text" class="form-control" id="img-prompt"
+                           name="img-prompt" value="{{ (index .Templates "img-prompt").TemplateText }}">
+                    <div id="img-promptHelpBlock" class="form-text">
+                        This is the instruction given when asking the AI to generate an image.<br>
+                        Default: &#123;&#123;.ImagePrompt&#125;&#125;
+                    </div>
+                </div>
+                img-prompt
                 <div class="d-grid">
                     <button type="submit" value="Save" class="btn btn-success" id="submit">Save</button>
                 </div>
