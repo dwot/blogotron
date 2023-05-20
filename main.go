@@ -358,6 +358,13 @@ func writeArticle(post Post) (error, Post) {
 		if post.IncludeYt && post.YtUrl != "" {
 			article = article + "\n<p>[embed]" + post.YtUrl + "[/embed]</p>"
 		}
+		//if title starts with a quote, remove it and if title ends with a quote, remove it
+		if strings.HasPrefix(title, "\"") {
+			title = strings.TrimPrefix(title, "\"")
+		}
+		if strings.HasSuffix(title, "\"") {
+			title = strings.TrimSuffix(title, "\"")
+		}
 		post.Content = article
 		post.Title = title
 	} else {
@@ -852,7 +859,7 @@ func runSystemTests() {
 
 	//Test Unsplash Connection
 	util.Logger.Info().Msg("Testing Unsplash Connection...")
-	_, err = unsplash.GetImageBySearch(Settings["UNSPLASH_API_KEY"], "robot")
+	_, err = unsplash.GetImageBySearch(Settings["UNSPLASH_ACCESS_KEY"], "robot")
 	if err != nil {
 		util.Logger.Error().Err(err).Msg("Error testing Unsplash API")
 	} else {
