@@ -917,7 +917,8 @@ func testWordPress() {
 		WordPressStatus = true
 	}
 	models.UpsertStatus("WordPress", strconv.FormatBool(WordPressStatus))
-	models.UpsertStatus("LastTestTime", time.Now().Format("Jan 2, 2006 at 3:04pm (MST)"))
+	LastTestTime = time.Now().Format("Jan 2, 2006 at 3:04pm (MST)")
+	models.UpsertStatus("LastTestTime", LastTestTime)
 }
 
 func testOpenAI() {
@@ -933,7 +934,8 @@ func testOpenAI() {
 		Greeting = aiTestResp
 	}
 	models.UpsertStatus("OpenAI", strconv.FormatBool(OpenAiStatus))
-	models.UpsertStatus("LastTestTime", time.Now().Format("Jan 2, 2006 at 3:04pm (MST)"))
+	LastTestTime = time.Now().Format("Jan 2, 2006 at 3:04pm (MST)")
+	models.UpsertStatus("LastTestTime", LastTestTime)
 	models.UpsertStatus("Greeting", Greeting)
 }
 
@@ -949,7 +951,8 @@ func testUnsplash() {
 		UnsplashStatus = true
 	}
 	models.UpsertStatus("Unsplash", strconv.FormatBool(UnsplashStatus))
-	models.UpsertStatus("LastTestTime", time.Now().Format("Jan 2, 2006 at 3:04pm (MST)"))
+	LastTestTime = time.Now().Format("Jan 2, 2006 at 3:04pm (MST)")
+	models.UpsertStatus("LastTestTime", LastTestTime)
 }
 
 func testStableDiffusion() {
@@ -969,7 +972,8 @@ func testStableDiffusion() {
 		util.Logger.Error().Msg("StableDiffusion is not enabled")
 	}
 	models.UpsertStatus("StableDiffusion", strconv.FormatBool(SdStatus))
-	models.UpsertStatus("LastTestTime", time.Now().Format("Jan 2, 2006 at 3:04pm (MST)"))
+	LastTestTime = time.Now().Format("Jan 2, 2006 at 3:04pm (MST)")
+	models.UpsertStatus("LastTestTime", LastTestTime)
 	models.UpsertStatus("Selfie", string(Selfie))
 }
 
