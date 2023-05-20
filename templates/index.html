@@ -116,8 +116,14 @@
                                     {{.IdeaCount}} / {{ (index .Settings "LOW_IDEA_THRESHOLD").SettingValue }}
                                 </td>
                             </tr>
+
                         </table>
                 </div>
+                    <div>
+                        <form action="/restart" method="post" id="restartForm">
+                            <button type="submit" class="btn btn-danger" id="restart">Restart Services</button>
+                        </form>
+                    </div>
             </div>
         </div>
     </div>

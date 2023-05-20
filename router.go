@@ -102,6 +102,7 @@ var ideaTpl = template.Must(template.ParseFiles(tmplPath("idea.html"), tmplPath(
 var seriesTpl = template.Must(template.ParseFiles(tmplPath("series.html"), tmplPath("base.html")))
 var settingsTpl = template.Must(template.ParseFiles(tmplPath("settings.html"), tmplPath("base.html")))
 var templatesTpl = template.Must(template.ParseFiles(tmplPath("templates.html"), tmplPath("base.html")))
+var restartTpl = template.Must(template.ParseFiles(tmplPath("restart.html"), tmplPath("base.html")))
 
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	settings, err := models.GetSettings()
@@ -600,8 +601,7 @@ func settingsSaveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	loadSettings()
-	settingsHandler(w, r)
-
+	restartHandler(w, r)
 }
 
 func templateHandler(w http.ResponseWriter, r *http.Request) {
@@ -613,6 +613,7 @@ func templateHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		util.Logger.Error().Err(err).Msg("Error getting templates")
 	}
+
 	buf := &bytes.Buffer{}
 	renderErr := templatesTpl.Execute(buf, templatesDate)
 	if renderErr != nil {
@@ -641,4 +642,19 @@ func templateSaveHandler(w http.ResponseWriter, r *http.Request) {
 func retestHandler(w http.ResponseWriter, r *http.Request) {
 	runSystemTests()
 	indexHandler(w, r)
+}
+
+func restartHandler(w http.ResponseWriter, r *http.Request) {
+	buf := &bytes.Buffer{}
+	renderErr := restartTpl.Execute(buf, nil)
+	if renderErr != nil {
+		util.Logger.Error().Err(renderErr).Msg("Error executing template")
+	}
+	_, renderErr = buf.WriteTo(w)
+	if renderErr != nil {
+		util.Logger.Error().Err(renderErr).Msg("Error writing template")
+	}
+	util.Logger.Info().Msg("Restarting")
+	task := Restart{}
+	RestartChannel <- task
 }

@@ -41,11 +41,22 @@ var (
 	Greeting        string
 	Selfie          []byte
 	LastTestTime    string
+	cronSrv         *gocron.Scheduler
+	webSrv          *http.Server
+	apiSrv          *http.Server
+	wg              *sync.WaitGroup
+	WebStatus       = false
+	ApiStatus       = false
+	CronStatus      = false
+	RestartChannel  chan Restart
 )
+
+type Restart struct{}
 
 func main() {
 	util.Init()
 	util.Logger.Info().Msg("Starting Blogotron")
+	RestartChannel = make(chan Restart)
 
 	//DB
 	dbName := "blogtron.db"
@@ -81,45 +92,44 @@ func main() {
 		loadCachedTestResults()
 	}
 
-	apiPort := Settings["BLOGOTRON_API_PORT"]
-	apiGin := gin.Default()
-	v1 := apiGin.Group("/api/v1")
-	{
-		v1.GET("idea", api.GetIdeas)
-		v1.GET("idea/:id", api.GetIdeaById)
-		v1.POST("idea", api.AddIdea)
-		v1.PUT("idea/:id", api.UpdateIdea)
-		v1.DELETE("idea/:id", api.DeleteIdea)
-		v1.OPTIONS("idea", api.Options)
+	//Thread Mgmt
+	wg = new(sync.WaitGroup)
+	util.Logger.Info().Msg("Starting Thread Management")
+	wg.Add(1)
+
+	//Web Service
+	startWebSrv()
+
+	//API Service
+	startApiSrv()
+
+	//Cron Service
+	startCronSrv()
+
+	util.Logger.Info().Msg("Startup Completed")
+	_ = <-RestartChannel
+	util.Logger.Info().Msg("Restarting System")
+	restartSystem()
+	util.Logger.Info().Msg("System Restarted")
+	wg.Wait()
+
+}
+
+func restartSystem() {
+	stopCronSrv()
+	stopWebSrv()
+	stopApiSrv()
+	//while servers statuses are true, wait
+	for WebStatus || ApiStatus || CronStatus {
+		time.Sleep(1 * time.Second)
 	}
+	util.Logger.Info().Msg("All Shut Down")
+	startCronSrv()
+	startWebSrv()
+	startApiSrv()
+}
 
-	//WEB SERVER
-	webPort := Settings["BLOGOTRON_PORT"]
-	if webPort == "" {
-		webPort = "8666"
-	}
-	fs := http.FileServer(http.Dir("assets"))
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/", indexHandler)
-	mux.HandleFunc("/create", createHandler)
-	mux.HandleFunc("/write", writeHandler)
-	mux.HandleFunc("/ideaList", ideaListHandler)
-	mux.HandleFunc("/aiIdea", aiIdeaHandler)
-	mux.HandleFunc("/idea", ideaHandler)
-	mux.HandleFunc("/ideaSave", ideaSaveHandler)
-	mux.HandleFunc("/ideaDel", ideaRemoveHandler)
-	mux.HandleFunc("/series", seriesHandler)
-	mux.HandleFunc("/seriesList", seriesListHandler)
-	mux.HandleFunc("/seriesSave", seriesSaveHandler)
-	mux.HandleFunc("/settings", settingsHandler)
-	mux.HandleFunc("/settingsSave", settingsSaveHandler)
-	mux.HandleFunc("/templates", templateHandler)
-	mux.HandleFunc("/templatesSave", templateSaveHandler)
-	mux.HandleFunc("/test", testHandler)
-	mux.HandleFunc("/retest", retestHandler)
-	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
-
+func startCronSrv() {
 	//Cron Service
 	autoPost := Settings["AUTO_POST_ENABLE"]
 	autoPostInterval := Settings["AUTO_POST_INTERVAL"]
@@ -127,7 +137,7 @@ func main() {
 	autoPostLen := Settings["AUTO_POST_LEN"]
 	autoPostState := Settings["AUTO_POST_STATE"]
 	lowIdeaThreshold := Settings["LOW_IDEA_THRESHOLD"]
-	cronSrv := gocron.NewScheduler(time.UTC)
+	cronSrv = gocron.NewScheduler(time.UTC)
 	iThreshold, convErr := strconv.Atoi(lowIdeaThreshold)
 	if convErr != nil {
 		iThreshold = 0
@@ -187,7 +197,7 @@ func main() {
 					Concept:        idea.IdeaConcept,
 				}
 
-				err, post = writeArticle(post)
+				err, post := writeArticle(post)
 				if err != nil {
 					util.Logger.Error().Err(err).Msg("Could not write article")
 				}
@@ -195,36 +205,109 @@ func main() {
 		})
 	}
 
-	//Thread Mgmt
-	util.Logger.Info().Msg("Starting Thread Management")
-	wg := new(sync.WaitGroup)
-	wg.Add(3)
-	util.Logger.Info().Msg("Starting Gin Server")
-	go func() {
-		apiGin.Run(":" + apiPort)
-		wg.Done()
-	}()
-	util.Logger.Info().Msg("Started Gin Server on Port " + apiPort + "")
-
-	util.Logger.Info().Msg("Starting Web Server")
-	go func() {
-		err = http.ListenAndServe(":"+webPort, mux)
-		if err != nil {
-			util.Logger.Error().Err(err).Msg("Error starting web server")
-		}
-		wg.Done()
-	}()
-	util.Logger.Info().Msg("Started Web Server on Port " + webPort + "")
-
 	util.Logger.Info().Msg("Starting Cron Server")
 	go func() {
 		//Start cron
 		cronSrv.StartBlocking()
 		wg.Done()
+		util.Logger.Info().Msg("Cron Server Stopped")
 	}()
+	CronStatus = true
 	util.Logger.Info().Msg("Started Cron Server")
-	util.Logger.Info().Msg("Startup Completed")
-	wg.Wait()
+}
+
+func startWebSrv() {
+	//WEB SERVER
+	webPort := Settings["BLOGOTRON_PORT"]
+	if webPort == "" {
+		webPort = "8666"
+	}
+	fs := http.FileServer(http.Dir("assets"))
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", indexHandler)
+	mux.HandleFunc("/create", createHandler)
+	mux.HandleFunc("/write", writeHandler)
+	mux.HandleFunc("/ideaList", ideaListHandler)
+	mux.HandleFunc("/aiIdea", aiIdeaHandler)
+	mux.HandleFunc("/idea", ideaHandler)
+	mux.HandleFunc("/ideaSave", ideaSaveHandler)
+	mux.HandleFunc("/ideaDel", ideaRemoveHandler)
+	mux.HandleFunc("/series", seriesHandler)
+	mux.HandleFunc("/seriesList", seriesListHandler)
+	mux.HandleFunc("/seriesSave", seriesSaveHandler)
+	mux.HandleFunc("/settings", settingsHandler)
+	mux.HandleFunc("/settingsSave", settingsSaveHandler)
+	mux.HandleFunc("/templates", templateHandler)
+	mux.HandleFunc("/templatesSave", templateSaveHandler)
+	mux.HandleFunc("/test", testHandler)
+	mux.HandleFunc("/retest", retestHandler)
+	mux.HandleFunc("/restart", restartHandler)
+	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
+	webSrv = &http.Server{Addr: ":" + webPort, Handler: mux}
+
+	wg.Add(1)
+	util.Logger.Info().Msg("Starting Web Server")
+	go func() {
+		err := webSrv.ListenAndServe()
+		if err != nil {
+			util.Logger.Error().Err(err).Msg("Error stopping web server")
+		}
+		wg.Done()
+		util.Logger.Info().Msg("Web Server Stopped")
+	}()
+	WebStatus = true
+	util.Logger.Info().Msg("Started Web Server on Port " + webPort + "")
+}
+
+func startApiSrv() {
+	apiPort := Settings["BLOGOTRON_API_PORT"]
+	apiGin := gin.Default()
+	v1 := apiGin.Group("/api/v1")
+	{
+		v1.GET("idea", api.GetIdeas)
+		v1.GET("idea/:id", api.GetIdeaById)
+		v1.POST("idea", api.AddIdea)
+		v1.PUT("idea/:id", api.UpdateIdea)
+		v1.DELETE("idea/:id", api.DeleteIdea)
+		v1.OPTIONS("idea", api.Options)
+	}
+	util.Logger.Info().Msg("Starting Gin Server")
+	apiSrv = &http.Server{Addr: ":" + apiPort, Handler: apiGin}
+	wg.Add(1)
+	go func() {
+		err := apiSrv.ListenAndServe()
+		if err != nil {
+			util.Logger.Error().Err(err).Msg("Error starting gin server")
+		}
+		wg.Done()
+		util.Logger.Info().Msg("Gin Server Stopped")
+	}()
+	ApiStatus = true
+	util.Logger.Info().Msg("Started Gin Server on Port " + apiPort + "")
+}
+
+func stopApiSrv() {
+	util.Logger.Info().Msg("Stopping API Server")
+	//issue shutdown to apiSrv and wait for it to complete
+	apiSrv.Shutdown(context.Background())
+	ApiStatus = false
+	util.Logger.Info().Msg("API Server Stopped")
+}
+
+func stopWebSrv() {
+	util.Logger.Info().Msg("Stopping Web Server")
+	webSrv.Shutdown(context.Background())
+	WebStatus = false
+	util.Logger.Info().Msg("Web Server Stopped")
+}
+
+func stopCronSrv() {
+	util.Logger.Info().Msg("Stopping Cron Server")
+	cronSrv.Stop()
+	cronSrv.Clear()
+	CronStatus = false
+	util.Logger.Info().Msg("Cron Server Stopped")
 }
 
 type SimilarityResponse struct {
