@@ -640,7 +640,17 @@ func templateSaveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func retestHandler(w http.ResponseWriter, r *http.Request) {
-	runSystemTests()
+	if r.FormValue("test") == "wordpress" {
+		testWordPress()
+	} else if r.FormValue("test") == "openai" {
+		testOpenAI()
+	} else if r.FormValue("test") == "unsplash" {
+		testUnsplash()
+	} else if r.FormValue("test") == "sd" {
+		testStableDiffusion()
+	} else {
+		runSystemTests()
+	}
 	indexHandler(w, r)
 }
 

@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -251,7 +250,9 @@ func startWebSrv() {
 	go func() {
 		err := webSrv.ListenAndServe()
 		if err != nil {
-			util.Logger.Error().Err(err).Msg("Error stopping web server")
+			if err.Error() != "http: Server closed" {
+				util.Logger.Error().Err(err).Msg("Error stopping web server")
+			}
 		}
 		wg.Done()
 		util.Logger.Info().Msg("Web Server Stopped")
@@ -262,6 +263,7 @@ func startWebSrv() {
 
 func startApiSrv() {
 	apiPort := Settings["BLOGOTRON_API_PORT"]
+	gin.SetMode(gin.ReleaseMode)
 	apiGin := gin.Default()
 	v1 := apiGin.Group("/api/v1")
 	{
@@ -308,12 +310,6 @@ func stopCronSrv() {
 	cronSrv.Clear()
 	CronStatus = false
 	util.Logger.Info().Msg("Cron Server Stopped")
-}
-
-type SimilarityResponse struct {
-	Title         string               `json:"title"`
-	Score         string               `json:"score"`
-	SimilarTitles []SimilarityResponse `json:"similar_titles"`
 }
 
 func generateSizedImage(p string, iWidth int, iHeight int) ([]byte, error) {
@@ -909,14 +905,9 @@ func loadTemplates() {
 	}
 }
 
-func runSystemTests() {
-	WordPressStatus = false
-	OpenAiStatus = false
-	SdStatus = false
-	UnsplashStatus = false
-
-	util.Logger.Info().Msg("Running system tests...")
+func testWordPress() {
 	//Test WordPress Connection
+	WordPressStatus = false
 	util.Logger.Info().Msg("Testing WordPress Connection...")
 	_, err := getWpTitles()
 	if err != nil {
@@ -925,6 +916,12 @@ func runSystemTests() {
 		util.Logger.Info().Msg("WordPress Connection Successful!")
 		WordPressStatus = true
 	}
+	models.UpsertStatus("WordPress", strconv.FormatBool(WordPressStatus))
+	models.UpsertStatus("LastTestTime", time.Now().Format("Jan 2, 2006 at 3:04pm (MST)"))
+}
+
+func testOpenAI() {
+	OpenAiStatus = false
 	//Test OpenAI Connection
 	util.Logger.Info().Msg("Testing OpenAI Connection...")
 	aiTestResp, err := openai.GenerateTestGreeting(Settings["OPENAI_API_KEY"], false, "You are running your start-up diagnostics, compose some humorous fake startup sequence events and a greeting as a sort of boot-up log and return them.  This response should be formatted an <ul> in HTML to be inserted into a status page.  Class \"font-monospace\" should be used on the text to give it a robotic feel.  The page already exists, we just need to drop in the HTML greeting inside the existing HTML page we have, so it should not include a body or head or close or open html tags, just the markup for the text itself within the page.", "You are Blog-o-Tron a sophisticated, AI-powered blogging robot.")
@@ -935,6 +932,28 @@ func runSystemTests() {
 		OpenAiStatus = true
 		Greeting = aiTestResp
 	}
+	models.UpsertStatus("OpenAI", strconv.FormatBool(OpenAiStatus))
+	models.UpsertStatus("LastTestTime", time.Now().Format("Jan 2, 2006 at 3:04pm (MST)"))
+	models.UpsertStatus("Greeting", Greeting)
+}
+
+func testUnsplash() {
+	UnsplashStatus = false
+	//Test Unsplash Connection
+	util.Logger.Info().Msg("Testing Unsplash Connection...")
+	_, err := unsplash.GetImageBySearch(Settings["UNSPLASH_ACCESS_KEY"], "robot")
+	if err != nil {
+		util.Logger.Error().Err(err).Msg("Error testing Unsplash API")
+	} else {
+		util.Logger.Info().Msg("Unsplash Connection Successful!")
+		UnsplashStatus = true
+	}
+	models.UpsertStatus("Unsplash", strconv.FormatBool(UnsplashStatus))
+	models.UpsertStatus("LastTestTime", time.Now().Format("Jan 2, 2006 at 3:04pm (MST)"))
+}
+
+func testStableDiffusion() {
+	SdStatus = false
 	//Test StableDiffusion Connection
 	if Settings["IMG_MODE"] == "sd" {
 		util.Logger.Info().Msg("Testing StableDiffusion Connection...")
@@ -949,104 +968,32 @@ func runSystemTests() {
 	} else {
 		util.Logger.Error().Msg("StableDiffusion is not enabled")
 	}
+	models.UpsertStatus("StableDiffusion", strconv.FormatBool(SdStatus))
+	models.UpsertStatus("LastTestTime", time.Now().Format("Jan 2, 2006 at 3:04pm (MST)"))
+	models.UpsertStatus("Selfie", string(Selfie))
+}
 
-	//Test Unsplash Connection
-	util.Logger.Info().Msg("Testing Unsplash Connection...")
-	_, err = unsplash.GetImageBySearch(Settings["UNSPLASH_ACCESS_KEY"], "robot")
-	if err != nil {
-		util.Logger.Error().Err(err).Msg("Error testing Unsplash API")
-	} else {
-		util.Logger.Info().Msg("Unsplash Connection Successful!")
-		UnsplashStatus = true
-	}
-	LastTestTime = time.Now().Format("Jan 2, 2006 at 3:04pm (MST)")
-	//Save Greeting to greeting.txt
-	SaveStringToFile(Greeting, "greeting.txt")
-
-	//Save Selfie to selfie.png
-	SaveBytesAsPNG(Selfie, "selfie.png")
-
-	//Get all status values as a CSV string along with timestamp as a human-readable string
-	statusCsv := strconv.FormatBool(WordPressStatus) + "," + strconv.FormatBool(OpenAiStatus) + "," + strconv.FormatBool(SdStatus) + "," + strconv.FormatBool(UnsplashStatus) + "," + LastTestTime
-	SaveStringToFile(statusCsv, "status.csv")
+func runSystemTests() {
+	util.Logger.Info().Msg("Running system tests...")
+	testWordPress()
+	testOpenAI()
+	testStableDiffusion()
+	testUnsplash()
+	util.Logger.Info().Msg("System tests complete!")
 }
 
 func loadCachedTestResults() {
-	//Load Greeting from greeting.txt
-	greeting, err := ReadStringFromFile("greeting.txt")
+	//Load Cached Test Results from database
+	statusMap, err := models.GetStatus()
 	if err != nil {
-		util.Logger.Error().Err(err).Msg("Error loading greeting.txt")
+		util.Logger.Error().Err(err).Msg("Error loading cached test results")
 	} else {
-		Greeting = greeting
+		WordPressStatus, _ = strconv.ParseBool(statusMap["WordPress"].StatusValue)
+		OpenAiStatus, _ = strconv.ParseBool(statusMap["OpenAI"].StatusValue)
+		SdStatus, _ = strconv.ParseBool(statusMap["StableDiffusion"].StatusValue)
+		UnsplashStatus, _ = strconv.ParseBool(statusMap["Unsplash"].StatusValue)
+		LastTestTime = statusMap["LastTestTime"].StatusValue
+		Selfie = []byte(statusMap["Selfie"].StatusValue)
+		Greeting = statusMap["Greeting"].StatusValue
 	}
-
-	//Load Selfie from selfie.png
-	selfie, err := ReadImageToBytes("selfie.png")
-	if err != nil {
-		util.Logger.Error().Err(err).Msg("Error loading selfie.png")
-	} else {
-		Selfie = selfie
-	}
-
-	//Load Status from status.csv
-	statusCsv, err := ReadStringFromFile("status.csv")
-	if err != nil {
-		util.Logger.Error().Err(err).Msg("Error loading status.csv")
-	} else {
-		status := strings.Split(statusCsv, ",")
-		WordPressStatus, _ = strconv.ParseBool(status[0])
-		OpenAiStatus, _ = strconv.ParseBool(status[1])
-		SdStatus, _ = strconv.ParseBool(status[2])
-		UnsplashStatus, _ = strconv.ParseBool(status[3])
-		LastTestTime = status[4]
-	}
-}
-
-func SaveBytesAsPNG(bytes []byte, outputPath string) error {
-	// Create a new file for writing the PNG
-	file, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Write the byte array to the file
-	_, err = file.Write(bytes)
-	if err != nil {
-		return err
-	}
-
-	util.Logger.Info().Msgf("PNG file saved successfully at: %s", outputPath)
-	return nil
-}
-
-func ReadImageToBytes(filePath string) ([]byte, error) {
-	// Read the image file
-	imageData, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	return imageData, nil
-}
-
-func SaveStringToFile(content string, filePath string) error {
-	// Write the string content to the file
-	err := ioutil.WriteFile(filePath, []byte(content), 0644)
-	if err != nil {
-		return err
-	}
-
-	util.Logger.Info().Msgf("String saved successfully to: %s", filePath)
-	return nil
-}
-
-func ReadStringFromFile(filePath string) (string, error) {
-	// Read the file
-	content, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-
-	return string(content), nil
 }

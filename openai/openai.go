@@ -6,6 +6,8 @@ import (
 	"errors"
 	"golang/util"
 	"strconv"
+	"strings"
+	"time"
 )
 
 import (
@@ -118,19 +120,38 @@ func generate(apiKey string, useGpt4 bool, prompt string, systemPrompt string, a
 		Role:    openai.ChatMessageRoleUser,
 		Content: prompt,
 	})
-	resp, err := client.CreateChatCompletion(context.Background(), openai.ChatCompletionRequest{
-		Model:    model,
-		Messages: messages,
-	})
 
-	if err != nil {
-		return "", err
+	maxRetries := 3
+	retries := 0
+	success := false
+
+	for !success && retries < maxRetries {
+		resp, err := client.CreateChatCompletion(context.Background(), openai.ChatCompletionRequest{
+			Model:    model,
+			Messages: messages,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "429") {
+				util.Logger.Info().Msg("API returned busy, waiting 5 seconds")
+				time.Sleep(5 * time.Second)
+				retries++
+				continue
+			} else {
+				return "", err
+			}
+		} else {
+			success = true
+			return resp.Choices[0].Message.Content, nil
+		}
+		if resp.Choices[0].FinishReason != "stop" {
+			err = errors.New("ChatCompletion error (FinishReason): " + resp.Choices[0].FinishReason)
+			return "", err
+		}
 	}
 
-	if resp.Choices[0].FinishReason != "stop" {
-		err = errors.New("ChatCompletion error (FinishReason): " + resp.Choices[0].FinishReason)
+	if !success {
+		err := errors.New("API busy and max retries met, please try again later")
 		return "", err
 	}
-
-	return resp.Choices[0].Message.Content, nil
+	return "", errors.New("Unknown error")
 }

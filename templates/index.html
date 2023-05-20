@@ -1,13 +1,6 @@
 {{template "header"}}
 <section class="container">
     <div class="row">
-        <div class="col-md-12">
-            <div class="container px-5">
-                <h1>Blog-o-Tron Diagnostics</h1>
-            </div>
-        </div>
-    </div>
-    <div class="row">
         <div class="col-md-4">
             <div class="container px-5 my-2">
                 <div>
@@ -16,6 +9,9 @@
             </div>
         </div>
         <div class="col-md-8">
+            <div class="container px-5">
+                <h1>Diagnostics</h1>
+            </div>
             <div class="container px-5 my-2">
                 <div class="d-flex align-items-center mb-4">
                     <div>
@@ -26,40 +22,57 @@
         </div>
     </div>
     <div class="row">
-        <div class="col-md-4">
+        <div class="col-md-6">
             <div class="container px-5 my-2">
                 <div class="table-responsive">
                     <table class="table">
                         <tr>
                             <td>WordPress Status</td>
                             <td>
-                                <span class="badge bg-{{ if .WordPressStatus }}success{{ else }}danger{{ end }}">
-                                    {{ if .WordPressStatus }}OK{{ else }}Not OK{{ end }}
-                                </span>
+                                <form action="/retest" method="post" id="wordpressForm">
+                                    <span class="badge bg-{{ if .WordPressStatus }}success{{ else }}danger{{ end }}">
+                                        {{ if .WordPressStatus }}OK{{ else }}Not OK{{ end }}
+                                   </span>
+                                    <input type="hidden" name="test" value="wordpress">
+                                    <button type="submit" class="btn btn-primary btn-sm" id="wordpressSubmit">Retest</button>
+                                </form>
                             </td>
                         </tr>
                         <tr>
                             <td>OpenAI Status</td>
                             <td>
-                                <span class="badge bg-{{ if .OpenAiStatus }}success{{ else }}danger{{ end }}">
-                                    {{ if .OpenAiStatus }}OK{{ else }}Not OK{{ end }}
-                                </span>
+                                <form action="/retest" method="post" id="openaiForm">
+                                    <span class="badge bg-{{ if .OpenAiStatus }}success{{ else }}danger{{ end }}">
+                                        {{ if .OpenAiStatus }}OK{{ else }}Not OK{{ end }}
+                                    </span>
+                                    <input type="hidden" name="test" value="openai">
+                                    <button type="submit" class="btn btn-primary btn-sm" id="openaiSubmit">Retest</button>
+                                </form>
                             </td>
                         </tr>
                         <tr>
                             <td>Stable Diffusion Status</td>
                             <td>
+                                <form action="/retest" method="post" id="sdForm">
+
                                 <span class="badge bg-{{ if .SdStatus }}success{{ else }}danger{{ end }}">
                                     {{ if .SdStatus }}OK{{ else }}Not OK{{ end }}
                                 </span>
+                                    <input type="hidden" name="test" value="sd">
+                                    <button type="submit" class="btn btn-primary btn-sm" id="sdSubmit">Retest</button>
+                                </form>
                             </td>
                         </tr>
                         <tr>
                             <td>Unsplash Status</td>
                             <td>
+                                <form action="/retest" method="post" id="unsplashForm">
                                 <span class="badge bg-{{ if .UnsplashStatus }}success{{ else }}danger{{ end }}">
                                     {{ if .UnsplashStatus }}OK{{ else }}Not OK{{ end }}
                                 </span>
+                                    <input type="hidden" name="test" value="unsplash">
+                                    <button type="submit" class="btn btn-primary btn-sm" id="unsplashSubmit">Retest</button>
+                                </form>
                             </td>
                         </tr>
                         <tr>
@@ -72,12 +85,12 @@
                 </div>
                 <div>
                     <form action="/retest" method="post" id="contentForm">
-                        <button type="submit" class="btn btn-primary" id="submit">Retest Connections</button>
+                        <button type="submit" class="btn btn-primary btn-sm" id="submit">Retest All</button>
                     </form>
                 </div>
             </div>
         </div>
-        <div class="col-md-8">
+        <div class="col-md-6">
             <div class="container px-5 my-2">
                 <div>
                     <div class="table-responsive">
@@ -121,7 +134,7 @@
                 </div>
                     <div>
                         <form action="/restart" method="post" id="restartForm">
-                            <button type="submit" class="btn btn-danger" id="restart">Restart Services</button>
+                            <button type="submit" class="btn btn-danger btn-sm" id="restart">Restart Services</button>
                         </form>
                     </div>
             </div>
@@ -130,8 +143,17 @@
 </section>
 <script>
     const form = document.getElementById('contentForm');
+    const openaiForm = document.getElementById('openaiForm');
+    const sdForm = document.getElementById('sdForm');
+    const unsplashForm = document.getElementById('unsplashForm');
+    const wordpressForm = document.getElementById('wordpressForm');
     // Get the form element and submit button
     const submitButton = document.getElementById('submit');
+    const openaiSubmitButton = document.getElementById('openaiSubmit');
+    const sdSubmitButton = document.getElementById('sdSubmit');
+    const unsplashSubmitButton = document.getElementById('unsplashSubmit');
+    const wordpressSubmitButton = document.getElementById('wordpressSubmit');
+
 
     // Add an event listener for form submission
     form.addEventListener('submit', function(event) {
@@ -140,6 +162,42 @@
 
         // Show the spinner
         submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Retesting...';
+
+    });
+
+    openaiForm.addEventListener('submit', function(event) {
+        // Disable the submit button
+        openaiSubmitButton.disabled = true;
+
+        // Show the spinner
+        openaiSubmitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Retesting...';
+
+    });
+
+    sdForm.addEventListener('submit', function(event) {
+        // Disable the submit button
+        sdSubmitButton.disabled = true;
+
+        // Show the spinner
+        sdSubmitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Retesting...';
+
+    });
+
+    unsplashForm.addEventListener('submit', function(event) {
+        // Disable the submit button
+        unsplashSubmitButton.disabled = true;
+
+        // Show the spinner
+        unsplashSubmitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Retesting...';
+
+    });
+
+    wordpressForm.addEventListener('submit', function(event) {
+        // Disable the submit button
+        wordpressSubmitButton.disabled = true;
+
+        // Show the spinner
+        wordpressSubmitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Retesting...';
 
     });
 </script>
