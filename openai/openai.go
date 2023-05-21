@@ -6,7 +6,6 @@ import (
 	"errors"
 	"golang/util"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -131,11 +130,16 @@ func generate(apiKey string, useGpt4 bool, prompt string, systemPrompt string, a
 			Messages: messages,
 		})
 		if err != nil {
-			if strings.Contains(err.Error(), "429") {
-				util.Logger.Info().Msg("API returned busy, waiting 5 seconds")
-				time.Sleep(5 * time.Second)
-				retries++
-				continue
+			e := &openai.APIError{}
+			if errors.As(err, &e) {
+				if e.StatusCode == 429 {
+					util.Logger.Info().Msg("API returned busy, waiting 5 seconds")
+					time.Sleep(5 * time.Second)
+					retries++
+					continue
+				} else {
+					return "", err
+				}
 			} else {
 				return "", err
 			}
