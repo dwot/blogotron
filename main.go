@@ -534,6 +534,7 @@ func writeArticle(post Post) (error, Post) {
 	} else {
 		models.SetIdeaWritten(post.IdeaId)
 	}
+	post.WordPressId = postId
 	//Write Post as Article to DB
 	articleDb := models.Article{
 		Title:          post.Title,
@@ -552,11 +553,12 @@ func writeArticle(post Post) (error, Post) {
 		Version:        1,
 		WordPressId:    postId,
 	}
-	_, err = models.UpsertArticle(articleDb)
+	articleId, err := models.UpsertArticle(articleDb)
 	if err != nil {
 		util.Logger.Error().Err(err).Msg("Error writing article to DB")
 		return err, post
 	}
+	post.ArticleId = int(articleId)
 	return nil, post
 }
 

@@ -37,6 +37,8 @@ type Post struct {
 	UnsplashSearch string `json:"unsplash-search"`
 	Keyword        string `json:"keyword"`
 	Concept        string `json:"concept"`
+	ArticleId      int    `json:"article-id"`
+	WordPressId    int    `json:"post-id"`
 }
 
 type WriteData struct {
@@ -55,6 +57,7 @@ type PlanData struct {
 type ArticleListData struct {
 	ErrorCode string           `json:"error-code"`
 	Articles  []models.Article `json:"articles"`
+	BlogUrl   string           `json:"blog-url"`
 }
 
 type Prompt struct {
@@ -231,6 +234,7 @@ func articleListHandler(w http.ResponseWriter, _ *http.Request) {
 	articleData := ArticleListData{
 		ErrorCode: "",
 		Articles:  articles,
+		BlogUrl:   Settings["WP_URL"],
 	}
 	buf := &bytes.Buffer{}
 	renderErr := articleListTpl.Execute(buf, articleData)
