@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-co-op/gocron"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
@@ -782,7 +783,8 @@ func doWordpressPost(endPoint string, postData map[string]interface{}) (int, err
 }
 
 type MediaResponse struct {
-	ID int `json:"id"`
+	ID   int    `json:"id"`
+	Link string `json:"link"`
 }
 
 func postImageToWordpress(imgBytes []byte, description string) int {
@@ -1040,4 +1042,80 @@ func loadCachedTestResults() {
 		Selfie = []byte(statusMap["Selfie"].StatusValue)
 		Greeting = statusMap["Greeting"].StatusValue
 	}
+}
+
+func getWordPressMediaUrlFromId(mediaID int) (string, error) {
+	respUrl := ""
+	// Create an HTTP client
+	client := &http.Client{}
+
+	// Define the URL and request method
+	baseUrl := Settings["WP_URL"]
+	//IF baseUrl ends with a slash, remove it
+	if baseUrl[len(baseUrl)-1:] == "/" {
+		baseUrl = baseUrl[:len(baseUrl)-1]
+	}
+	url := baseUrl + "/wp-json/wp/v2/media/" + strconv.Itoa(mediaID)
+
+	// Define the authentication credentials
+	username := Settings["WP_USERNAME"]
+	password := Settings["WP_PASSWORD"]
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return "", err
+	}
+
+	// Calculate the content length
+	contentLength := strconv.Itoa(int(req.ContentLength))
+
+	// Set the content type header
+	req.Header.Set("Content-Type", "application/json")
+	// Set the content length header
+	req.Header.Set("Content-Length", contentLength)
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Connection", "keep-alive")
+	// Set the host header
+	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(Settings["WP_URL"], "https://", ""), "http://", ""))
+	req.Header.Set("User-Agent", "PostmanRuntime/7.26.8")
+
+	// Encode the username and password in base64
+	auth := username + ":" + password
+	basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+
+	// Set the Authorization header for basic authentication
+	req.Header.Set("Authorization", basicAuth)
+
+	var response MediaResponse
+	// Send the request
+	res, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+
+	// Read the response body
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("Error reading response body:", err)
+		return "", err
+	}
+
+	util.Logger.Info().Msg("Response Body: " + string(body))
+
+	// Parse the JSON response
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return "", err
+	} else {
+		respUrl = response.Link
+	}
+
+	// Check the response status code
+	if res.StatusCode != http.StatusOK {
+		return "", errors.New("Link lookup failed. Status code:" + strconv.Itoa(res.StatusCode))
+	}
+	return respUrl, nil
 }

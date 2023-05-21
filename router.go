@@ -248,6 +248,7 @@ type ArticleData struct {
 	ErrorCode string
 	Article   models.Article
 	ArticleId string
+	MediaUrl  string
 }
 
 func articleHandler(w http.ResponseWriter, r *http.Request) {
@@ -260,6 +261,7 @@ func articleHandler(w http.ResponseWriter, r *http.Request) {
 	articleData := ArticleData{
 		ErrorCode: "",
 		ArticleId: articleId,
+		MediaUrl:  "",
 	}
 	if id > 0 {
 		article, err = models.GetArticleById(id)
@@ -267,6 +269,15 @@ func articleHandler(w http.ResponseWriter, r *http.Request) {
 			util.Logger.Error().Err(err).Msg("Error getting article by id")
 		} else {
 			articleData.Article = article
+		}
+	}
+	if articleData.Article.MediaId > 0 {
+		mediaUrl, err := getWordPressMediaUrlFromId(articleData.Article.MediaId)
+		if err != nil {
+			util.Logger.Error().Err(err).Msg("Error getting media url from id")
+		} else {
+			articleData.MediaUrl = mediaUrl
+			util.Logger.Info().Str("mediaUrl", mediaUrl).Msg("Got media url")
 		}
 	}
 

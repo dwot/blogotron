@@ -4,74 +4,77 @@
            <table>
                 <tr>
                     <td>Id</td>
-                    <td>{{ .Id }}</td>
+                    <td>{{ .Article.Id }}</td>
                 </tr>
                 <tr>
                     <td>Title</td>
-                    <td>{{ .Title }}</td>
-                </tr>
-                <tr>
-                    <td>Content</td>
-                    <td>{{ .Content }}</td>
+                    <td>{{ .Article.Title }}</td>
                 </tr>
                 <tr>
                     <td>Description</td>
-                    <td>{{ .Description }}</td>
+                    <td>{{ .Article.Description }}</td>
                 </tr>
                 <tr>
                     <td>Primary Keyword</td>
-                    <td>{{ .PrimaryKeyword }}</td>
+                    <td>{{ .Article.PrimaryKeyword }}</td>
                 </tr>
                 <tr>
                     <td>Media Id</td>
-                    <td>{{ .MediaId }}</td>
+                    <td><a href="{{.MediaUrl}}" target="_blank">{{ .Article.MediaId }}</a></td>
                 </tr>
                 <tr>
                     <td>Prompt</td>
-                    <td>{{ .Prompt }}</td>
+                    <td>{{ .Article.Prompt }}</td>
                 </tr>
                 <tr>
                     <td>Yt Url</td>
-                    <td>{{ .YtUrl }}</td>
+                    <td>{{ .Article.YtUrl }}</td>
                 </tr>
                 <tr>
                     <td>Img Prompt</td>
-                    <td>{{ .ImgPrompt }}</td>
+                    <td>{{ .Article.ImgPrompt }}</td>
                 </tr>
                 <tr>
                     <td>Img Search</td>
-                    <td>{{ .ImgSearch }}</td>
+                    <td>{{ .Article.ImgSearch }}</td>
                 </tr>
                 <tr>
                     <td>Img Src Url</td>
-                    <td>{{ .ImgSrcUrl }}</td>
+                    <td>{{ .Article.ImgSrcUrl }}</td>
                 </tr>
                 <tr>
                     <td>Concept</td>
-                    <td>{{ .Concept }}</td>
+                    <td>{{ .Article.Concept }}</td>
                 </tr>
                 <tr>
                     <td>Idea Id</td>
-                    <td>{{ .IdeaId }}</td>
+                    <td>{{ .Article.IdeaId }}</td>
                 </tr>
+               <tr>
+                   <td>WordPress ID</td>
+                   <td>{{ .Article.WordPressId }}</td>
+               </tr>
                 <tr>
                     <td>Status</td>
-                    <td>{{ .Status }}</td>
+                    <td>{{ .Article.Status }}</td>
                 </tr>
                 <tr>
                     <td>Version</td>
-                    <td>{{ .Version }}</td>
+                    <td>{{ .Article.Version }}</td>
                 </tr>
                 <tr>
                     <td>Create Date</td>
-                    <td>{{ .CreateDate }}</td>
+                    <td>{{ .Article.CreateDate }}</td>
                 </tr>
                 <tr>
                     <td>Update Date</td>
-                    <td>{{ .UpdateDate }}</td>
+                    <td>{{ .Article.UpdateDate }}</td>
                 </tr>
-
-            </table>
+               <tr>
+                   <td>Content</td>
+                   <td>{{ .Article.Content }}</td>
+               </tr>
+           </table>
         </div>
     </section>
 
