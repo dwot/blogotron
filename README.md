@@ -35,14 +35,6 @@ It is a work in progress and is not ready for production use.
 2. Create the docker container ```docker run -d -p 8666:8666 -v blogotron_data:/app/blogtron.db blogotron:latest```
 3. Browse to http://localhost:8666
 
-### Run the Docker Compose
-The docker compose will create a database, wordpress instance, redis instance and the blogotron instance.
-1. Create the Docker Image w/ the above steps
-2. Edit the docker-compose.yml and enter proper ports and paths for your environment
-3. docker-compose up -d
-4. Browse to the wordpress port and complete the install
-5. Browse to the blogotron port and you should be set
-
 ## Usage
 ### Write
 - From the Write screen you can author a blog post from a concept. You can use a vague concept and have the BOT create a title or provide an exact title and check "Use Concept as Title". 
