@@ -31,8 +31,8 @@ It is a work in progress and is not ready for production use.
 3. docker build -t blogotron:latest .
 
 ### Run the Docker Image
-1. Create a dir to hold the database
-2. docker run -d -p 8666:8666 -v /path/to/local/.env:/app/.env -v /path/to/local/config.yml:/app/config.yml -v /path/to/local/blogtron.db:/app/blogtron.db blogotron:latest
+1. Create a docker volume to hold the database: ```docker volume create blogotron_data```
+2. Create the docker container ```docker run -d -p 8666:8666 -v blogotron_data:/app/blogtron.db blogotron:latest```
 3. Browse to http://localhost:8666
 
 ### Run the Docker Compose
