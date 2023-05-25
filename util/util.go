@@ -14,7 +14,7 @@ func Init() {
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout}
 	// Create a lumberjack logger for rotating log files
 	logFile := &lumberjack.Logger{
-		Filename:   "blogotron-application.log",
+		Filename:   "data/blogotron-application.log",
 		MaxSize:    10, // Maximum size in megabytes before log rotation
 		MaxBackups: 3,  // Maximum number of old log files to retain
 		MaxAge:     7,  // Maximum number of days to retain log files

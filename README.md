@@ -32,7 +32,7 @@ It is a work in progress and is not ready for production use.
 
 ### Run the Docker Image
 1. Create a docker volume to hold the database: ```docker volume create blogotron_data```
-2. Create the docker container ```docker run -d -p 8666:8666 -v blogotron_data:/app/blogtron.db blogotron:latest```
+2. Create the docker container ```docker run -d -p 8666:8666 -v blogotron_data:/app/data blogotron:latest```
 3. Browse to http://localhost:8666
 
 ## Usage

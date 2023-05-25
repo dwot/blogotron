@@ -59,7 +59,7 @@ func main() {
 	RestartChannel = make(chan Restart)
 
 	//DB
-	dbName := "blogtron.db"
+	dbName := "data/blogtron.db"
 	err := models.ConnectDatabase(dbName)
 	if err != nil {
 		util.Logger.Error().Err(err).Msg("Could not connect to database file " + dbName)
