@@ -654,10 +654,6 @@ func getWpTitles() ([]string, error) {
 	url := baseUrl + "/wp-json/wp/v2/posts?per_page=100"
 	method := "GET"
 
-	// Define the authentication credentials
-	username := Settings["WP_USERNAME"]
-	password := Settings["WP_PASSWORD"]
-
 	// Create a request
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
@@ -665,8 +661,7 @@ func getWpTitles() ([]string, error) {
 		return nil, err
 	}
 
-	// Set the authentication header
-	req.SetBasicAuth(username, password)
+	req = setReqHeaders(req, "", "application/json")
 
 	// Send the request
 	res, err := client.Do(req)
@@ -728,37 +723,14 @@ func doWordpressPost(endPoint string, postData map[string]interface{}) (int, err
 	url := baseUrl + endPoint //"/wp-json/wp/v2/posts"
 	method := "POST"
 
-	// Define the authentication credentials
-	username := Settings["WP_USERNAME"]
-	password := Settings["WP_PASSWORD"]
-
 	// Create a request with the JSON data
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return -1, err
 	}
 
-	// Calculate the content length
 	contentLength := strconv.Itoa(len(jsonData))
-
-	// Set the content type header
-	req.Header.Set("Content-Type", "application/json")
-	// Set the content length header
-	req.Header.Set("Content-Length", contentLength)
-	req.Header.Set("Cache-Control", "no-cache")
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Connection", "keep-alive")
-	// Set the host header
-	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(Settings["WP_URL"], "https://", ""), "http://", ""))
-	req.Header.Set("User-Agent", "PostmanRuntime/7.26.8")
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
-
-	// Encode the username and password in base64
-	auth := username + ":" + password
-	basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
-
-	// Set the Authorization header for basic authentication
-	req.Header.Set("Authorization", basicAuth)
+	req = setReqHeaders(req, contentLength, "application/json")
 
 	postId := -1
 	var response PostResponse
@@ -782,6 +754,35 @@ func doWordpressPost(endPoint string, postData map[string]interface{}) (int, err
 		return -1, errors.New("Post creation failed. Status code:" + strconv.Itoa(res.StatusCode))
 	}
 	return postId, nil
+}
+
+func setReqHeaders(req *http.Request, contentLength string, contentType string) *http.Request {
+	// Define the authentication credentials
+	username := Settings["WP_USERNAME"]
+	password := Settings["WP_PASSWORD"]
+
+	req.Header.Set("Content-Type", contentType)
+	// Set the content type header
+	if contentLength != "" {
+
+		req.Header.Set("Content-Length", contentLength)
+	}
+	// Set the content length header
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Connection", "keep-alive")
+	// Set the host header
+	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(Settings["WP_URL"], "https://", ""), "http://", ""))
+	req.Header.Set("User-Agent", "PostmanRuntime/7.26.8")
+	//req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	// Encode the username and password in base64
+	auth := username + ":" + password
+	basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+
+	// Set the Authorization header for basic authentication
+	req.Header.Set("Authorization", basicAuth)
+
+	return req
 }
 
 type MediaResponse struct {
@@ -832,10 +833,6 @@ func postImageToWordpress(imgBytes []byte, description string) int {
 	url := baseUrl + "/wp-json/wp/v2/media"
 	method := "POST"
 
-	// Define the authentication credentials
-	username := Settings["WP_USERNAME"]
-	password := Settings["WP_PASSWORD"]
-
 	// Create a request with the multipart body
 	req, err := http.NewRequest(method, url, body)
 	mediaID := 0
@@ -846,24 +843,7 @@ func postImageToWordpress(imgBytes []byte, description string) int {
 		// Calculate the content length
 		contentLength := strconv.Itoa(body.Len())
 
-		// Set the content type header
-		req.Header.Set("Content-Type", writer.FormDataContentType())
-		// Set the content length header
-		req.Header.Set("Content-Length", contentLength)
-		req.Header.Set("Cache-Control", "no-cache")
-		req.Header.Set("Accept", "*/*")
-		req.Header.Set("Connection", "keep-alive")
-		// Set the host header
-		req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(baseUrl, "https://", ""), "http://", ""))
-		req.Header.Set("User-Agent", "PostmanRuntime/7.26.8")
-		req.Header.Set("Accept-Encoding", "gzip, deflate, br")
-
-		// Encode the username and password in base64
-		auth := username + ":" + password
-		basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
-
-		// Set the Authorization header for basic authentication
-		req.Header.Set("Authorization", basicAuth)
+		req = setReqHeaders(req, contentLength, writer.FormDataContentType())
 		// Send the request
 		res, err := client.Do(req)
 		if err != nil {
@@ -1059,10 +1039,6 @@ func getWordPressMediaUrlFromId(mediaID int) (string, error) {
 	}
 	url := baseUrl + "/wp-json/wp/v2/media/" + strconv.Itoa(mediaID)
 
-	// Define the authentication credentials
-	username := Settings["WP_USERNAME"]
-	password := Settings["WP_PASSWORD"]
-
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
@@ -1072,23 +1048,7 @@ func getWordPressMediaUrlFromId(mediaID int) (string, error) {
 	// Calculate the content length
 	contentLength := strconv.Itoa(int(req.ContentLength))
 
-	// Set the content type header
-	req.Header.Set("Content-Type", "application/json")
-	// Set the content length header
-	req.Header.Set("Content-Length", contentLength)
-	req.Header.Set("Cache-Control", "no-cache")
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Connection", "keep-alive")
-	// Set the host header
-	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(Settings["WP_URL"], "https://", ""), "http://", ""))
-	req.Header.Set("User-Agent", "PostmanRuntime/7.26.8")
-
-	// Encode the username and password in base64
-	auth := username + ":" + password
-	basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
-
-	// Set the Authorization header for basic authentication
-	req.Header.Set("Authorization", basicAuth)
+	req = setReqHeaders(req, contentLength, "application/json")
 
 	var response MediaResponse
 	// Send the request
