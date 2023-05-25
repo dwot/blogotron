@@ -644,15 +644,20 @@ func settingsHandler(w http.ResponseWriter, r *http.Request) {
 		util.Logger.Error().Err(err).Msg("Error getting settings")
 	}
 	sdUrl := Settings["SD_URL"]
-	ctx := context.Background()
-	upscalers, err := stablediffusion.GetUpscalers(sdUrl, ctx)
-	if err != nil {
-		util.Logger.Error().Err(err).Msg("Error getting upscalers")
+	upscalers := map[string]stablediffusion.Upscaler{}
+	samplers := map[string]stablediffusion.Algorithm{}
+	if sdUrl != "" {
+		ctx := context.Background()
+		upscalers, err = stablediffusion.GetUpscalers(sdUrl, ctx)
+		if err != nil {
+			util.Logger.Error().Err(err).Msg("Error getting upscalers")
+		}
+		samplers, err = stablediffusion.GetSamplers(sdUrl, ctx)
+		if err != nil {
+			util.Logger.Error().Err(err).Msg("Error getting samplers")
+		}
 	}
-	samplers, err := stablediffusion.GetSamplers(sdUrl, ctx)
-	if err != nil {
-		util.Logger.Error().Err(err).Msg("Error getting samplers")
-	}
+
 	settingsData := SettingsData{
 		ErrorCode: "",
 		Settings:  settings,
