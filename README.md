@@ -6,7 +6,7 @@ It is a work in progress and is not ready for production use.
 
 ## Configuration
 ### Settings 
-#### Settings have been migrated to the database in the latest version along w/ prompts from the config file.
+#### Settings have been migrated to the database in the latest version along w/ prompts from the config file.  The settings page will contain the most up to date settings rundown and description.
 - WP_URL - The URL of the wordpress instance
 - WP_USERNAME - The username of the wordpress user
 - WP_PASSWORD - The application password of the wordpress user.  See https://www.paidmembershipspro.com/create-application-password-wordpress/
